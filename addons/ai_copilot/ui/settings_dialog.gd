@@ -35,7 +35,7 @@ func set_client(c: AiCopilotLLMClient) -> void:
 func _build_body() -> Control:
 	var root := VBoxContainer.new()
 	root.name = "Body"
-	root.custom_minimum_size = Vector2(640, 340)
+	root.custom_minimum_size = Vector2(AiCopilotUI.scale(560), AiCopilotUI.scale(300))
 	root.add_theme_constant_override("separation", 12)
 
 	# --- Segmented section switcher (clear, unambiguous active state) -------
@@ -84,8 +84,8 @@ func _make_seg_button(text: String, is_first: bool) -> Button:
 	b.text = text
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(140, 30)
-	b.add_theme_font_size_override("font_size", 14)
+	b.custom_minimum_size = Vector2(AiCopilotUI.scale(140), AiCopilotUI.scale(32))
+	b.add_theme_font_size_override("font_size", AiCopilotUI.fs_body())
 
 	var mk := func(bg: Color, fg: Color, border: Color) -> StyleBoxFlat:
 		var s := StyleBoxFlat.new()
@@ -150,9 +150,9 @@ func _make_connection_tab() -> Control:
 	_keys_hint.fit_content = true
 	_keys_hint.scroll_active = false
 	_keys_hint.meta_underlined = true
-	_keys_hint.custom_minimum_size = Vector2(560, 20)
+	_keys_hint.custom_minimum_size = Vector2(AiCopilotUI.scale(480), AiCopilotUI.scale(20))
 	_keys_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_keys_hint.add_theme_font_size_override("normal_font_size", 12)
+	_keys_hint.add_theme_font_size_override("normal_font_size", AiCopilotUI.fs_small())
 	_keys_hint.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
 	conn.add_child(_keys_hint)
 
@@ -170,7 +170,7 @@ func _make_connection_tab() -> Control:
 	var model_row := _labeled_row("Model")
 	_model_edit = LineEdit.new()
 	_model_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_model_edit.custom_minimum_size.x = 220
+	_model_edit.custom_minimum_size.x = AiCopilotUI.scale(200)
 	_model_edit.placeholder_text = "model id (e.g. gpt-4o)"
 	_model_edit.clip_contents = true
 	_inputs["model"] = _model_edit
@@ -187,16 +187,16 @@ func _make_connection_tab() -> Control:
 	conn.add_child(model_row)
 
 	_fetch_status = Label.new()
-	_fetch_status.add_theme_font_size_override("font_size", 11)
+	_fetch_status.add_theme_font_size_override("font_size", AiCopilotUI.fs_small())
 	_fetch_status.add_theme_color_override("font_color", Color("8a8a95"))
 	conn.add_child(_fetch_status)
 
 	var model_hint := Label.new()
 	model_hint.text = "Fetch lists the models your endpoint exposes — you can also type any model id."
-	model_hint.add_theme_font_size_override("font_size", 11)
+	model_hint.add_theme_font_size_override("font_size", AiCopilotUI.fs_small())
 	model_hint.add_theme_color_override("font_color", Color("707078"))
 	model_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	model_hint.custom_minimum_size.x = 560
+	model_hint.custom_minimum_size.x = AiCopilotUI.scale(480)
 	conn.add_child(model_hint)
 	return conn
 
@@ -223,7 +223,7 @@ func _labeled_row(label_text: String) -> HBoxContainer:
 	h.add_theme_constant_override("separation", 10)
 	var l := Label.new()
 	l.text = label_text
-	l.custom_minimum_size.x = 150
+	l.custom_minimum_size.x = AiCopilotUI.scale(150)
 	h.add_child(l)
 	return h
 
@@ -334,7 +334,7 @@ func _row(key: String, label_text: String, kind: String) -> HBoxContainer:
 	h.add_theme_constant_override("separation", 10)
 	var l := Label.new()
 	l.text = label_text
-	l.custom_minimum_size.x = 150
+	l.custom_minimum_size.x = AiCopilotUI.scale(150)
 	h.add_child(l)
 	var w: Control = null
 	match kind:
@@ -347,7 +347,7 @@ func _row(key: String, label_text: String, kind: String) -> HBoxContainer:
 			w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		"SpinBox":
 			w = SpinBox.new()
-			(w as SpinBox).custom_minimum_size.x = 160
+			(w as SpinBox).custom_minimum_size.x = AiCopilotUI.scale(160)
 			match key:
 				"temperature":
 					(w as SpinBox).min_value = 0.0
