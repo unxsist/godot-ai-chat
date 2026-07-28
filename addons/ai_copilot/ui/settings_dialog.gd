@@ -29,12 +29,17 @@ func set_client(c: AiCopilotLLMClient) -> void:
 	_client = c
 
 func _build_body() -> Control:
-	var v := VBoxContainer.new()
-	v.name = "Body"
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.add_theme_constant_override("separation", 6)
+	var tabs := TabContainer.new()
+	tabs.name = "Body"
+	tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	# --- Provider picker -------------------------------------------------
+	# ============================ Connection tab ============================
+	var conn := VBoxContainer.new()
+	conn.name = "Connection"
+	conn.add_theme_constant_override("separation", 6)
+	tabs.add_child(conn)
+
+	# Provider picker
 	var prov_row := HBoxContainer.new()
 	var prov_label := Label.new()
 	prov_label.text = "Provider"
@@ -45,7 +50,7 @@ func _build_body() -> Control:
 	_populate_providers()
 	_provider_btn.item_selected.connect(_on_provider_selected)
 	prov_row.add_child(_provider_btn)
-	v.add_child(prov_row)
+	conn.add_child(prov_row)
 
 	# API-key acquisition hint
 	_keys_hint = RichTextLabel.new()
@@ -54,19 +59,19 @@ func _build_body() -> Control:
 	_keys_hint.meta_underlined = true
 	_keys_hint.custom_minimum_size = Vector2(560, 0)
 	_keys_hint.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
-	v.add_child(_keys_hint)
+	conn.add_child(_keys_hint)
 
-	# --- Base URL (editable only for custom/local) -----------------------
+	# Base URL (editable only for custom/local)
 	_base_url_row = _row("base_url", "Base URL", "LineEdit")
 	_base_url_edit = _inputs["base_url"]
-	v.add_child(_base_url_row)
+	conn.add_child(_base_url_row)
 
-	# --- API key ---------------------------------------------------------
+	# API key
 	_api_key_row = _row("api_key", "API key", "PasswordInput")
 	_api_key_edit = _inputs["api_key"]
-	v.add_child(_api_key_row)
+	conn.add_child(_api_key_row)
 
-	# --- Model row: field + fetch + dropdown -----------------------------
+	# Model row: field + fetch + dropdown
 	var model_row := HBoxContainer.new()
 	var model_label := Label.new()
 	model_label.text = "Model"
@@ -86,25 +91,34 @@ func _build_body() -> Control:
 	_fetch_btn.text = "Fetch models"
 	_fetch_btn.pressed.connect(_on_fetch_models)
 	model_row.add_child(_fetch_btn)
-	v.add_child(model_row)
+	conn.add_child(model_row)
 	_fetch_status = Label.new()
 	_fetch_status.add_theme_font_size_override("font_size", 11)
 	_fetch_status.add_theme_color_override("font_color", Color("8a8a95"))
-	v.add_child(_fetch_status)
+	conn.add_child(_fetch_status)
+	var model_hint := Label.new()
+	model_hint.text = "Fetch lists the models your endpoint exposes — you can also type any model id."
+	model_hint.add_theme_font_size_override("font_size", 11)
+	model_hint.add_theme_color_override("font_color", Color("707078"))
+	model_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	conn.add_child(model_hint)
 
-	v.add_child(HSeparator.new())
+	# ============================= Advanced tab =============================
+	var adv := VBoxContainer.new()
+	adv.name = "Advanced"
+	adv.add_theme_constant_override("separation", 6)
+	tabs.add_child(adv)
 
-	# --- Remaining settings ---------------------------------------------
-	v.add_child(_row("vision_model", "Vision model (optional)", "LineEdit"))
-	v.add_child(_row("model_context_window", "Model context window (tokens)", "SpinBox"))
-	v.add_child(_row("temperature", "Temperature", "SpinBox"))
-	v.add_child(_row("max_tokens", "Max tokens", "SpinBox"))
-	v.add_child(_row("max_steps", "Max steps", "SpinBox"))
-	v.add_child(_row("approve_default", "Approve mode by default", "CheckBox"))
-	v.add_child(_row("allow_shell", "Allow shell tool", "CheckBox"))
-	v.add_child(_row("compact_threshold", "Compact threshold (0..1)", "SpinBox"))
-	v.add_child(_row("verbose_logging", "Verbose logging", "CheckBox"))
-	return v
+	adv.add_child(_row("vision_model", "Vision model (optional)", "LineEdit"))
+	adv.add_child(_row("model_context_window", "Model context window (tokens)", "SpinBox"))
+	adv.add_child(_row("temperature", "Temperature", "SpinBox"))
+	adv.add_child(_row("max_tokens", "Max tokens", "SpinBox"))
+	adv.add_child(_row("approve_default", "Approve mode by default", "CheckBox"))
+	adv.add_child(_row("allow_shell", "Allow shell tool", "CheckBox"))
+	adv.add_child(_row("compact_threshold", "Compact threshold (0..1)", "SpinBox"))
+	adv.add_child(_row("verbose_logging", "Verbose logging", "CheckBox"))
+
+	return tabs
 
 func _populate_providers() -> void:
 	_provider_btn.clear()
@@ -236,9 +250,6 @@ func _row(key: String, label_text: String, kind: String) -> HBoxContainer:
 				"model_context_window":
 					(w as SpinBox).min_value = 4096
 					(w as SpinBox).max_value = 2000000
-				"max_steps":
-					(w as SpinBox).min_value = 1
-					(w as SpinBox).max_value = 100
 				"compact_threshold":
 					(w as SpinBox).min_value = 0.1
 					(w as SpinBox).max_value = 0.95

@@ -33,6 +33,16 @@ func _build() -> void:
 	_built = true
 	for c in get_children():
 		c.queue_free()
+	# reset grouped-tool state (nodes are being freed above)
+	_cur_group = null
+	_cur_group_name = ""
+	_cur_group_count = 0
+	_cur_group_head_label = null
+	_cur_group_head_dot = null
+	_cur_group_chevron = null
+	_cur_group_call_ids = []
+	_tool_dots.clear()
+	_tool_labels.clear()
 
 	add_theme_constant_override("margin_left", 10)
 	add_theme_constant_override("margin_right", 10)
@@ -257,7 +267,14 @@ func _make_code_block(seg: Dictionary) -> Control:
 func add_tool_indicator(tc: AiCopilotLLMTypes.ToolCall) -> void:
 	if _tool_section == null:
 		return
-	_tool_section.add_child(_make_indicator(tc))
+	# Group consecutive calls to the SAME tool under one collapsible header.
+	# A different tool (or the same tool after a different one) starts a new group.
+	if _cur_group_name == tc.name and _cur_group != null:
+		_add_call_row(_cur_group, tc)
+		_cur_group_count += 1
+		_update_group_header()
+	else:
+		_start_group(tc)
 
 func update_tool_result(tc: AiCopilotLLMTypes.ToolCall, result: AiCopilotLLMTypes.ToolResult) -> void:
 	var dot: ColorRect = _tool_dots.get(tc.id, null)
@@ -266,8 +283,19 @@ func update_tool_result(tc: AiCopilotLLMTypes.ToolCall, result: AiCopilotLLMType
 		dot.color = Color("e05252") if result.is_error else Color("52c072")
 	if lbl:
 		lbl.text = str(result.content).left(2000)
+	_refresh_group_head_status()
 
-func _make_indicator(tc: AiCopilotLLMTypes.ToolCall) -> Control:
+# --- grouped tool indicators --------------------------------------------
+
+var _cur_group: VBoxContainer = null          # container holding per-call rows
+var _cur_group_name := ""
+var _cur_group_count := 0
+var _cur_group_head_label: Label = null
+var _cur_group_head_dot: ColorRect = null
+var _cur_group_chevron: Label = null
+var _cur_group_call_ids: Array = []
+
+func _start_group(tc: AiCopilotLLMTypes.ToolCall) -> void:
 	var pill := PanelContainer.new()
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var ps := StyleBoxFlat.new()
@@ -294,7 +322,6 @@ func _make_indicator(tc: AiCopilotLLMTypes.ToolCall) -> Control:
 	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	dot.color = Color("e0b040")
 	row.add_child(dot)
-	_tool_dots[tc.id] = dot
 
 	var name_l := Label.new()
 	name_l.text = tc.name
@@ -309,25 +336,11 @@ func _make_indicator(tc: AiCopilotLLMTypes.ToolCall) -> Control:
 	chevron.add_theme_color_override("font_color", Color("707080"))
 	row.add_child(chevron)
 
-	var detail := VBoxContainer.new()
-	detail.visible = false
-	detail.add_theme_constant_override("separation", 3)
-	col.add_child(detail)
-
-	var ae := Label.new()
-	ae.text = tc.arguments_raw.left(600)
-	ae.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ae.add_theme_font_size_override("font_size", AiCopilotUI.fs_tiny())
-	ae.add_theme_color_override("font_color", Color("6f7080"))
-	detail.add_child(ae)
-
-	var rl := Label.new()
-	rl.text = "running..."
-	rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rl.add_theme_font_size_override("font_size", AiCopilotUI.fs_tiny())
-	rl.add_theme_color_override("font_color", Color("8a94a4"))
-	detail.add_child(rl)
-	_tool_labels[tc.id] = rl
+	# container for per-call detail rows (hidden until expanded)
+	var calls := VBoxContainer.new()
+	calls.visible = false
+	calls.add_theme_constant_override("separation", 4)
+	col.add_child(calls)
 
 	var btn := Button.new()
 	btn.flat = true
@@ -336,8 +349,82 @@ func _make_indicator(tc: AiCopilotLLMTypes.ToolCall) -> Control:
 	var expanded := [false]
 	btn.pressed.connect(func():
 		expanded[0] = not expanded[0]
-		detail.visible = expanded[0]
-		chevron.text = "▾" if expanded[0] else "▸"
-	)
+		calls.visible = expanded[0]
+		chevron.text = "▾" if expanded[0] else "▸")
 	pill.add_child(btn)
-	return pill
+
+	_tool_section.add_child(pill)
+
+	# set group state
+	_cur_group = calls
+	_cur_group_name = tc.name
+	_cur_group_count = 1
+	_cur_group_head_label = name_l
+	_cur_group_head_dot = dot
+	_cur_group_chevron = chevron
+	_cur_group_call_ids = []
+
+	_add_call_row(calls, tc)
+	_update_group_header()
+
+# Add one call's detail row (args + result) inside a group container.
+func _add_call_row(container: VBoxContainer, tc: AiCopilotLLMTypes.ToolCall) -> void:
+	_cur_group_call_ids.append(tc.id)
+	var wrap := VBoxContainer.new()
+	wrap.add_theme_constant_override("separation", 2)
+	container.add_child(wrap)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	wrap.add_child(head)
+	var d := ColorRect.new()
+	d.custom_minimum_size = Vector2(AiCopilotUI.scale(6), AiCopilotUI.scale(6))
+	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	d.color = Color("e0b040")
+	head.add_child(d)
+	_tool_dots[tc.id] = d
+	var ae := Label.new()
+	ae.text = tc.arguments_raw.left(600) if tc.arguments_raw.strip_edges() != "" else "(no args)"
+	ae.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ae.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ae.add_theme_font_size_override("font_size", AiCopilotUI.fs_tiny())
+	ae.add_theme_color_override("font_color", Color("8a90a2"))
+	head.add_child(ae)
+
+	var rl := Label.new()
+	rl.text = "running..."
+	rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rl.add_theme_font_size_override("font_size", AiCopilotUI.fs_tiny())
+	rl.add_theme_color_override("font_color", Color("6f7080"))
+	wrap.add_child(rl)
+	_tool_labels[tc.id] = rl
+
+func _update_group_header() -> void:
+	if _cur_group_head_label == null:
+		return
+	if _cur_group_count > 1:
+		_cur_group_head_label.text = "%s  ×%d" % [_cur_group_name, _cur_group_count]
+	else:
+		_cur_group_head_label.text = _cur_group_name
+
+# Header dot goes green when all calls in the group succeeded, red if any errored,
+# amber while any are still running.
+func _refresh_group_head_status() -> void:
+	if _cur_group_head_dot == null:
+		return
+	var any_err := false
+	var any_running := false
+	for cid in _cur_group_call_ids:
+		var d: ColorRect = _tool_dots.get(cid, null)
+		if d == null:
+			continue
+		if d.color == Color("e05252"):
+			any_err = true
+		elif d.color == Color("e0b040"):
+			any_running = true
+	if any_err:
+		_cur_group_head_dot.color = Color("e05252")
+	elif any_running:
+		_cur_group_head_dot.color = Color("e0b040")
+	else:
+		_cur_group_head_dot.color = Color("52c072")

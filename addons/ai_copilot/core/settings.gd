@@ -13,7 +13,6 @@ const KEYS := {
 	"api_key": "",
 	"temperature": 0.2,
 	"max_tokens": 4096,
-	"max_steps": AiCopilotConst.MAX_STEPS_DEFAULT,
 	"approve_default": true,
 	"allow_shell": true,
 	"compact_threshold": AiCopilotConst.COMPACT_THRESHOLD_DEFAULT,

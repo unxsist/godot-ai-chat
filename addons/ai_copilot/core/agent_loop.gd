@@ -15,7 +15,7 @@ var _client: AiCopilotLLMClient
 var _registry: AiCopilotToolRegistry
 var _settings: AiCopilotSettings
 var _repo_context: String = ""
-var _max_steps: int = AiCopilotConst.MAX_STEPS_DEFAULT
+var _max_steps: int = AiCopilotConst.SAFETY_STEP_CAP
 var _stop_requested: bool = false
 var _busy: bool = false
 var _approve_mode: bool = true
@@ -31,8 +31,7 @@ func _init(p_client: AiCopilotLLMClient, p_registry: AiCopilotToolRegistry, p_se
 	_registry = p_registry
 	_settings = p_settings
 
-func configure(max_steps: int, approve_mode: bool, system_prompt: String) -> void:
-	_max_steps = max_steps
+func configure(approve_mode: bool, system_prompt: String) -> void:
 	_approve_mode = approve_mode
 	_repo_context = system_prompt
 
@@ -63,7 +62,15 @@ func run(history: Array, options: Dictionary = {}) -> void:
 			return
 		step += 1
 		step_started.emit(step, max_steps)
+		var is_last_step := step >= max_steps
 		var payload_messages := _to_dicts(history)
+		# On the final allowed step, tell the model to stop calling tools and
+		# summarize instead of getting cut off mid-task (KiloCode's approach).
+		var step_opts := opts
+		if is_last_step:
+			payload_messages.append(AiCopilotLLMTypes.Message.new("system", AiCopilotConst.MAX_STEPS_PROMPT).to_dict())
+			step_opts = opts.duplicate()
+			step_opts.erase("tools")
 		if _pending_image.has("base64"):
 			var img_msg := AiCopilotLLMTypes.Message.new("user", [
 				{"type":"text","text":"Here is the current editor viewport:"},
@@ -78,9 +85,9 @@ func run(history: Array, options: Dictionary = {}) -> void:
 		var assistant_msg: AiCopilotLLMTypes.Message
 		var use_stream := _client._strategy.get_works()
 		if use_stream:
-			assistant_msg = await _client.send_messages_stream(payload_messages, opts)
+			assistant_msg = await _client.send_messages_stream(payload_messages, step_opts)
 		else:
-			assistant_msg = await _client.send_messages_fake_stream(payload_messages, opts)
+			assistant_msg = await _client.send_messages_fake_stream(payload_messages, step_opts)
 		if assistant_msg == null:
 			error_emitted.emit("LLM returned null message")
 			turn_finished.emit("error")

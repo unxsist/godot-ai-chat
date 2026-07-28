@@ -78,6 +78,9 @@ static func convert_segments(md: String) -> Array:
 			buf.append("[color=#99a]▏ %s[/color]" % _inline_format(stripped.substr(2)))
 		elif stripped.begins_with("- ") or stripped.begins_with("* "):
 			buf.append("  • %s" % _inline_format(stripped.substr(2)))
+		elif _is_ordered_item(stripped):
+			var dot := stripped.find(". ")
+			buf.append("  %s. %s" % [stripped.substr(0, dot), _inline_format(stripped.substr(dot + 2))])
 		elif stripped == "":
 			buf.append("")
 		else:
@@ -86,21 +89,79 @@ static func convert_segments(md: String) -> Array:
 	flush_text.call()
 	return segments
 
+# True for "1. text", "23. text", etc.
+static func _is_ordered_item(s: String) -> bool:
+	var dot := s.find(". ")
+	if dot <= 0:
+		return false
+	var num := s.substr(0, dot)
+	return num.is_valid_int()
+
+# Inline markdown -> bbcode. Processes in a single left-to-right pass so that
+# code spans are protected (their contents aren't re-formatted) and repeated
+# text is handled positionally (no String.replace pitfalls).
+# Supports: `code`, **bold**, __bold__, *italic*, _italic_, [text](url).
 static func _inline_format(s: String) -> String:
-	var result := _escape_bb(s)
-	var rg := RegEx.new()
-	if rg.compile("`([^`]+)`") == OK:
-		for m in rg.search_all(result):
-			result = result.replace(m.get_string(), "[code]%s[/code]" % m.get_string(1))
-	rg = RegEx.new()
-	if rg.compile("\\*\\*([^*]+)\\*\\*") == OK:
-		for m in rg.search_all(result):
-			result = result.replace(m.get_string(), "[b]%s[/b]" % m.get_string(1))
-	rg = RegEx.new()
-	if rg.compile("\\[([^\\]]+)\\]\\(([^\\)]*)\\)") == OK:
-		for m in rg.search_all(result):
-			result = result.replace(m.get_string(), "[url=%s]%s[/url]" % [m.get_string(2), m.get_string(1)])
-	return result
+	var out := ""
+	var i := 0
+	var n := s.length()
+	while i < n:
+		var c := s[i]
+		# inline code span: `...`
+		if c == "`":
+			var end := s.find("`", i + 1)
+			if end != -1:
+				out += "[code]%s[/code]" % _escape_bb(s.substr(i + 1, end - i - 1))
+				i = end + 1
+				continue
+		# links: [text](url)
+		if c == "[":
+			var close := s.find("]", i + 1)
+			if close != -1 and close + 1 < n and s[close + 1] == "(":
+				var paren := s.find(")", close + 2)
+				if paren != -1:
+					var label := s.substr(i + 1, close - i - 1)
+					var url := s.substr(close + 2, paren - close - 2)
+					out += "[url=%s]%s[/url]" % [url, _inline_format(label)]
+					i = paren + 1
+					continue
+		# bold: ** ** or __ __
+		if (c == "*" and i + 1 < n and s[i + 1] == "*") or (c == "_" and i + 1 < n and s[i + 1] == "_"):
+			var marker := s.substr(i, 2)
+			var end2 := s.find(marker, i + 2)
+			if end2 != -1:
+				out += "[b]%s[/b]" % _inline_format(s.substr(i + 2, end2 - i - 2))
+				i = end2 + 2
+				continue
+		# italic: * * or _ _  (single, not part of a word for _)
+		if c == "*" or (c == "_" and _is_word_boundary(s, i)):
+			var end3 := _find_italic_close(s, i + 1, c)
+			if end3 != -1:
+				out += "[i]%s[/i]" % _inline_format(s.substr(i + 1, end3 - i - 1))
+				i = end3 + 1
+				continue
+		out += _escape_bb(c)
+		i += 1
+	return out
+
+# Underscore italics only at word boundaries so snake_case isn't italicized.
+static func _is_word_boundary(s: String, i: int) -> bool:
+	if i == 0:
+		return true
+	var prev := s[i - 1]
+	return prev == " " or prev == "\t" or prev == "(" or prev == "\""
+
+static func _find_italic_close(s: String, from: int, marker: String) -> int:
+	var j := from
+	while j < s.length():
+		if s[j] == marker:
+			# don't treat a doubled marker as a close (that's bold)
+			if j + 1 < s.length() and s[j + 1] == marker:
+				j += 2
+				continue
+			return j
+		j += 1
+	return -1
 
 static func _escape_bb(s: String) -> String:
-	return s.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+	return s.replace("[", "[lb]")

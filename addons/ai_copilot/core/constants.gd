@@ -13,7 +13,10 @@ const DEFAULT_ENDPOINT := "https://api.fireworks.ai/inference/v1"
 const CHAT_COMPLETIONS_PATH := "/chat/completions"
 const PROVIDER_NAME := "fireworks"
 
-const MAX_STEPS_DEFAULT := 20
+# Hidden safety cap on the agentic loop. The loop normally ends when the model
+# returns a text-only response (no tool calls); this only prevents runaway loops.
+const SAFETY_STEP_CAP := 50
+const MAX_STEPS_PROMPT := "You have reached the maximum number of tool-call steps for this task. Do NOT call any more tools. Reply with text only: briefly summarize what you accomplished and list anything still remaining."
 const COMPACT_THRESHOLD_DEFAULT := 0.7
 const LARGE_FILE_BYTES := 200 * 1024
 const PATH_SANDOX_ROOT := "res://"

@@ -101,6 +101,8 @@ func _ready() -> void:
 
 ## ⚙️ Settings
 
+Settings are split into a **Connection** tab (provider, key, model) and an **Advanced** tab (everything below).
+
 | Key | Default | Notes |
 |---|---|---|
 | provider | openai | Selected provider id |
@@ -111,7 +113,6 @@ func _ready() -> void:
 | api_key | (none) | Stored XOR'd with a per-install salt |
 | temperature | 0.2 | |
 | max_tokens | 4096 | |
-| max_steps | 20 | Tool-call limit per message |
 | approve_default | true | Mutating tools require approval |
 | allow_shell | true | Disable to unregister the shell tool |
 | compact_threshold | 0.7 | Conversation size / context window |

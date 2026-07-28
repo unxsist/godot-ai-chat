@@ -53,7 +53,7 @@ func _ready() -> void:
 
 	_agent = AiCopilotAgentLoop.new(_client, _registry, _settings)
 	add_child(_agent)
-	_agent.configure(int(_settings.get_value("max_steps")), bool(_settings.get_value("approve_default")), sys)
+	_agent.configure(bool(_settings.get_value("approve_default")), sys)
 	_agent.assistant_message_complete.connect(_on_assistant_message)
 	_agent.tool_call_completed.connect(func(_c, _r): _save())
 	_agent.turn_finished.connect(func(_r): _save())
