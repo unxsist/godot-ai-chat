@@ -8,8 +8,10 @@ func _enter_tree() -> void:
 	_ensure_user_dir()
 	add_autoload_singleton("AiCopilot", "res://addons/ai_copilot/api.gd")
 	_panel = preload("res://addons/ai_copilot/ui/chat_panel.tscn").instantiate()
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BR, _panel)
+	# Name must be set BEFORE add_control_to_dock — the dock tab caption is taken
+	# from the control's name at insertion time (otherwise it shows "ChatPanel").
 	_panel.name = "AI Copilot"
+	add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BR, _panel)
 	print("[ai_copilot] plugin enter_tree v%s" % AiCopilotConst.PLUGIN_VERSION)
 
 func _exit_tree() -> void:

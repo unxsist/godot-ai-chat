@@ -27,3 +27,5 @@
 - Markdown rendering fixes: links now work, added italics (`*x*` / `_x_`) and ordered lists, protected inline code, and made inline formatting position-safe (`snake_case` no longer italicized).
 - Markdown now renders **live while streaming** (bold/italic/code/links/lists), not only after the message completes. Unclosed markers mid-stream stay literal until their closing marker arrives.
 - Fix: streaming (chunk/reasoning) signals are now connected once and gated by an in-flight flag, instead of being connected/disconnected per message. An errored turn used to leak its connection, so a later turn's "thinking" could spawn a stray bubble that appeared above your message or replaced an earlier one. Also hardened live-bubble handling against stale references.
+- Settings dialog polish: clear segmented section switcher (Connection / Advanced) instead of faint tabs, sized-to-content window, and editor-scaled fonts so nothing looks tiny on HiDPI.
+- Fix: the dock tab is now correctly titled "AI Copilot" instead of "ChatPanel".
