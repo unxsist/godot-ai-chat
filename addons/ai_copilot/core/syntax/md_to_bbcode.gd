@@ -1,6 +1,56 @@
 class_name AiCopilotMDToBBCode
 extends RefCounted
 
+# Render markdown to a single bbcode string for LIVE streaming. Applies the same
+# block + inline rules as convert_segments, but produces one bbcode string
+# (code fences become inline [code] blocks) so it can be set on a RichTextLabel
+# on every streamed token. Handles a still-open code fence at the end.
+static func render_stream(md: String) -> String:
+	var lines := md.split("\n")
+	var out := PackedStringArray()
+	var i := 0
+	var in_code := false
+	var code_buf := PackedStringArray()
+	while i < lines.size():
+		var line := lines[i]
+		var stripped := line.strip_edges()
+		if stripped.begins_with("```"):
+			if in_code:
+				# closing fence: flush the code block
+				out.append("[code]%s[/code]" % _escape_bb("\n".join(code_buf)))
+				code_buf = PackedStringArray()
+				in_code = false
+			else:
+				in_code = true
+			i += 1
+			continue
+		if in_code:
+			code_buf.append(line)
+			i += 1
+			continue
+		if stripped.begins_with("### "):
+			out.append("[b][color=#9aa]%s[/color][/b]" % _escape_bb(stripped.substr(4)))
+		elif stripped.begins_with("## "):
+			out.append("[b]%s[/b]" % _escape_bb(stripped.substr(3)))
+		elif stripped.begins_with("# "):
+			out.append("[b]%s[/b]" % _escape_bb(stripped.substr(2)))
+		elif stripped == "---" or stripped == "***":
+			out.append("[color=#555]────────[/color]")
+		elif stripped.begins_with("> "):
+			out.append("[color=#99a]▏ %s[/color]" % _inline_format(stripped.substr(2)))
+		elif stripped.begins_with("- ") or stripped.begins_with("* "):
+			out.append("  • %s" % _inline_format(stripped.substr(2)))
+		elif _is_ordered_item(stripped):
+			var dot := stripped.find(". ")
+			out.append("  %s. %s" % [stripped.substr(0, dot), _inline_format(stripped.substr(dot + 2))])
+		else:
+			out.append(_inline_format(line))
+		i += 1
+	# an unterminated code fence still streaming: show what we have so far
+	if in_code and code_buf.size() > 0:
+		out.append("[code]%s[/code]" % _escape_bb("\n".join(code_buf)))
+	return "\n".join(out)
+
 static func convert(md: String) -> Dictionary:
 	var lines := md.split("\n")
 	var bb := PackedStringArray()
@@ -133,6 +183,11 @@ static func _inline_format(s: String) -> String:
 				out += "[b]%s[/b]" % _inline_format(s.substr(i + 2, end2 - i - 2))
 				i = end2 + 2
 				continue
+			# Unclosed bold marker (common mid-stream): keep it literal and skip
+			# both chars so the italic rule below doesn't treat it as empty italic.
+			out += _escape_bb(marker)
+			i += 2
+			continue
 		# italic: * * or _ _  (single, not part of a word for _)
 		if c == "*" or (c == "_" and _is_word_boundary(s, i)):
 			var end3 := _find_italic_close(s, i + 1, c)

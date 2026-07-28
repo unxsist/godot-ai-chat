@@ -25,3 +25,4 @@
 - Removed the `max_steps` setting: the agent loop ends naturally when the model replies without tool calls (a hidden safety cap gracefully asks it to summarize if ever reached).
 - Consecutive calls to the same tool are now grouped under one collapsible pill (e.g. `read_file ×3`); a different tool starts a new group.
 - Markdown rendering fixes: links now work, added italics (`*x*` / `_x_`) and ordered lists, protected inline code, and made inline formatting position-safe (`snake_case` no longer italicized).
+- Markdown now renders **live while streaming** (bold/italic/code/links/lists), not only after the message completes. Unclosed markers mid-stream stay literal until their closing marker arrives.

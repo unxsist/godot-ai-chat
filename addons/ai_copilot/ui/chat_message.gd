@@ -6,6 +6,7 @@ var _role: String = ""
 var _bubble: PanelContainer
 var _master: VBoxContainer
 var _stream_rich: RichTextLabel
+var _stream_raw: String = ""
 var _reasoning_rich: RichTextLabel = null
 var _tool_section: VBoxContainer
 var _tool_dots: Dictionary = {}
@@ -43,6 +44,7 @@ func _build() -> void:
 	_cur_group_call_ids = []
 	_tool_dots.clear()
 	_tool_labels.clear()
+	_stream_raw = ""
 
 	add_theme_constant_override("margin_left", 10)
 	add_theme_constant_override("margin_right", 10)
@@ -131,12 +133,16 @@ func _make_bubble(is_user: bool) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", s)
 	return p
 
-# Live streaming append (before final render)
+# Live streaming append (before final render). Accumulates raw markdown and
+# re-renders it as bbcode each token so bold/italic/code/links show live.
+# Unclosed markers (e.g. "**bol" before "d**" arrives) are left literal by the
+# formatter and resolve once the closing marker streams in.
 func append_text(t: String) -> void:
 	if _stream_rich == null:
 		return
 	_stream_rich.visible = true
-	_stream_rich.text += t
+	_stream_raw += t
+	_stream_rich.text = AiCopilotMDToBBCode.render_stream(_stream_raw)
 	set_thinking(false)
 
 func append_reasoning(t: String) -> void:
@@ -173,7 +179,7 @@ func _process(delta: float) -> void:
 		_spinner.text = _spin_frames[_spin_i] + " thinking…"
 
 func get_text() -> String:
-	return _stream_rich.text if _stream_rich else ""
+	return _stream_raw
 
 # Final render: rebuild body as ordered segments (text / code)
 func set_text(raw: String) -> void:
