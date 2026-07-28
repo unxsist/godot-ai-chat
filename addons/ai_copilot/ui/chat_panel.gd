@@ -28,6 +28,10 @@ func _ready() -> void:
 	AiCopilotLogger.set_verbose(bool(_settings.get_value("verbose_logging")))
 	_client = AiCopilotLLMClient.new(_settings)
 	add_child(_client)
+	# Connect streaming signals ONCE (guarded by _busy) — avoids leaked
+	# per-send connections that could spawn stray bubbles on later turns.
+	_client.chunk_received.connect(_on_stream_chunk)
+	_client.reasoning_received.connect(_on_stream_reasoning)
 
 	_registry = AiCopilotToolRegistry.new()
 
@@ -179,16 +183,6 @@ func _on_send(text: String) -> void:
 	_add_bubble("user", text)
 	_live_bubble = null
 
-	var chunk_callable := func(c: AiCopilotLLMTypes.ResponseChunk):
-		if c.delta_text != "":
-			_ensure_live_bubble().append_text(c.delta_text)
-			_scroll_to_bottom()
-	var reasoning_callable := func(t: String):
-		_ensure_live_bubble().append_reasoning(t)
-		_scroll_to_bottom()
-	_client.chunk_received.connect(chunk_callable)
-	_client.reasoning_received.connect(reasoning_callable)
-
 	var compact_check := AiCopilotCompactor.new()
 	var ctx := int(_settings.get_value("model_context_window"))
 	var thr := float(_settings.get_value("compact_threshold"))
@@ -198,13 +192,32 @@ func _on_send(text: String) -> void:
 		_rerender()
 
 	await _agent.run(_history)
-	_client.chunk_received.disconnect(chunk_callable)
-	_client.reasoning_received.disconnect(reasoning_callable)
 	_live_bubble = null
 	_busy = false
 	_toolbar.set_stop_enabled(false)
 
+# Streaming callbacks — connected ONCE in _ready (see _connect_stream_signals).
+# They only act while a turn is in flight, so they can stay connected without
+# per-send connect/disconnect (which leaked on errored turns and spawned
+# stray bubbles on later turns).
+func _on_stream_chunk(c: AiCopilotLLMTypes.ResponseChunk) -> void:
+	if not _busy:
+		return
+	if c.delta_text != "":
+		_ensure_live_bubble().append_text(c.delta_text)
+		_scroll_to_bottom()
+
+func _on_stream_reasoning(t: String) -> void:
+	if not _busy:
+		return
+	_ensure_live_bubble().append_reasoning(t)
+	_scroll_to_bottom()
+
 func _ensure_live_bubble() -> AiCopilotChatMessage:
+	# Guard against a stale reference to a queue_free()'d bubble (== null only
+	# becomes true after the node is actually freed at end of frame).
+	if _live_bubble != null and not is_instance_valid(_live_bubble):
+		_live_bubble = null
 	if _live_bubble == null:
 		_live_bubble = _add_bubble("assistant", "")
 		_live_bubble.set_thinking(true)
@@ -212,6 +225,8 @@ func _ensure_live_bubble() -> AiCopilotChatMessage:
 
 func _on_assistant_message(msg: AiCopilotLLMTypes.Message) -> void:
 	# Finalize the current round's bubble text (keeps any tool pills that follow).
+	if _live_bubble != null and not is_instance_valid(_live_bubble):
+		_live_bubble = null
 	var has_text: bool = msg.content != null and str(msg.content).strip_edges() != ""
 	var has_tools: bool = msg.tool_calls.size() > 0
 	if has_text:
@@ -227,6 +242,8 @@ func _on_assistant_message(msg: AiCopilotLLMTypes.Message) -> void:
 func _on_step_started(_step: int, _max_steps: int) -> void:
 	# Each LLM round gets its own bubble so text + its tools stay grouped.
 	# Create it now (empty, spinning) so there's immediate feedback while the API responds.
+	if _dbg_order():
+		print("[order] step_started #%d; box has %d bubbles; live=%s" % [_step, _messages_box.get_child_count(), str(is_instance_valid(_live_bubble))])
 	_live_bubble = _add_bubble("assistant", "")
 	_live_bubble.set_thinking(true)
 
@@ -237,7 +254,7 @@ func _on_tool_started(tc: AiCopilotLLMTypes.ToolCall) -> void:
 	_scroll_to_bottom()
 
 func _on_tool_completed(tc: AiCopilotLLMTypes.ToolCall, result: AiCopilotLLMTypes.ToolResult) -> void:
-	if _live_bubble:
+	if _live_bubble and is_instance_valid(_live_bubble):
 		_live_bubble.update_tool_result(tc, result)
 	if tc.name == "todowrite" and result.data.has("todos"):
 		_update_todos(result.data["todos"])
@@ -325,13 +342,7 @@ func _on_regenerate() -> void:
 	_busy = true
 	_toolbar.set_stop_enabled(true)
 	_live_bubble = null
-	var chunk_callable := func(c: AiCopilotLLMTypes.ResponseChunk):
-		if c.delta_text != "":
-			_ensure_live_bubble().append_text(c.delta_text)
-			_scroll_to_bottom()
-	_client.chunk_received.connect(chunk_callable)
 	await _agent.run(_history)
-	_client.chunk_received.disconnect(chunk_callable)
 	_live_bubble = null
 	_busy = false
 	_toolbar.set_stop_enabled(false)
@@ -342,8 +353,16 @@ func _add_bubble(role: String, text: String) -> AiCopilotChatMessage:
 	b.set_role(role)
 	if text != "":
 		b.set_text(text)
+	if _dbg_order():
+		var order := ""
+		for c in _messages_box.get_children():
+			order += (c.get_role()[0] if c.has_method("get_role") and c.get_role() != "" else "?")
+		print("[order] add_bubble(%s) -> [%s]" % [role, order])
 	_scroll_to_bottom()
 	return b
+
+static func _dbg_order() -> bool:
+	return OS.get_environment("AICOPILOT_DBG_ORDER") != ""
 
 func _save() -> void:
 	AiCopilotSessionStore.save(_history)
