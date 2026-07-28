@@ -378,6 +378,12 @@ func _rerender() -> void:
 	_scroll_to_bottom()
 
 func _scroll_to_bottom() -> void:
-	await get_tree().process_frame
+	if _scroll == null:
+		return
+	# Wait for layout to settle: newly added tall items (e.g. an approval card
+	# with a diff) need a couple of passes before the scrollbar's max_value
+	# reflects the new content height.
+	for i in range(3):
+		await get_tree().process_frame
 	if _scroll:
-		_scroll.scroll_vertical = _scroll.get_v_scroll_bar().max_value
+		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)

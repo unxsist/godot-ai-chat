@@ -8,6 +8,7 @@ signal reject(call: AiCopilotLLMTypes.ToolCall)
 const MUTATING_FILE_TOOLS := ["write_file", "edit_file"]
 const DIFF_CONTEXT_LINES := 3
 const DIFF_MAX_LINES := 60
+const DIFF_MAX_HEIGHT := 260  # px (pre-scale); diff scrolls internally beyond this
 
 var _call: AiCopilotLLMTypes.ToolCall
 var _approve_mode: bool = true
@@ -206,10 +207,20 @@ func _render_inline_diff(args: Dictionary) -> void:
 	s.content_margin_bottom = 8
 	card.add_theme_stylebox_override("panel", s)
 	_diff_box.add_child(card)
+
+	# Cap the diff height and let it scroll internally, so a large change never
+	# pushes the Approve/Reject buttons out of reach in the chat panel.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 0)
+	scroll.set_meta("max_h", AiCopilotUI.scale(DIFF_MAX_HEIGHT))
+	card.add_child(scroll)
+
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 0)
-	card.add_child(col)
+	scroll.add_child(col)
 
 	var shown := 0
 	for d in lines:
@@ -223,6 +234,11 @@ func _render_inline_diff(args: Dictionary) -> void:
 		col.add_child(_diff_line(String(d["kind"]), String(d["text"])))
 		shown += 1
 	_diff_box.visible = true
+	# Clamp the scroll region to the max height once the content is laid out.
+	col.resized.connect(func():
+		var content_h := int(col.get_combined_minimum_size().y)
+		scroll.custom_minimum_size.y = min(content_h, AiCopilotUI.scale(DIFF_MAX_HEIGHT))
+	)
 
 func _diff_line(kind: String, text: String) -> Control:
 	var row := PanelContainer.new()

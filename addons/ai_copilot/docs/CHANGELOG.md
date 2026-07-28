@@ -14,3 +14,4 @@
 - Fix: approval card was never configured (set_call ran before the view built its widgets), so the diff/actions never appeared
 - Approval card redesigned: dark themed, shows an inline colored diff for `write_file`/`edit_file` automatically (no extra click), with an Expand button for the full side-by-side view
 - Diff preview dialog restyled to match the editor dark theme with syntax highlighting
+- Fix: a tall approval diff pushed the Approve/Reject buttons out of reach — the inline diff now caps its height and scrolls internally, and the chat panel waits for layout before auto-scrolling
