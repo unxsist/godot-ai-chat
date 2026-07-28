@@ -52,14 +52,22 @@ func send_messages_stream(messages: Array, options: Dictionary = {}) -> AiCopilo
 	var body := JSON.stringify(payload, "", false)
 	var sse := AiCopilotSSEStream.new(host, path, auth_header, body)
 	var accum := _Accumulator.new()
+	var had_error := [false]
 	sse.data_line.connect(_on_data.bind(accum))
 	sse.done_received.connect(_on_done.bind(accum))
 	sse.heartbeat.connect(func(): pass)
-	sse.stream_error.connect(func(m): push_error("[ai_copilot] sse err: " + m))
+	sse.stream_error.connect(func(m):
+		had_error[0] = true
+		push_error("[ai_copilot] sse err: " + m))
 	await sse.run(self)
+	# Fall back to a non-streaming request if the stream failed or produced
+	# nothing (bad endpoint, HTTP error, model without SSE support, etc.).
+	if had_error[0] or not sse.any_data:
+		AiCopilotLogger.warn("streaming failed (code=%d, data=%s); falling back to batch" % [sse.response_code, str(sse.any_data)])
+		return await send_messages_batch(messages, options)
 	var final_msg: AiCopilotLLMTypes.Message = accum.build_message()
 	if final_msg == null:
-		return AiCopilotLLMTypes.Message.new("assistant", "")
+		return await send_messages_batch(messages, options)
 	return final_msg
 
 func send_messages_fake_stream(messages: Array, options: Dictionary = {}) -> AiCopilotLLMTypes.Message:

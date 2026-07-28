@@ -14,6 +14,8 @@ var _auth: String
 var _body: String
 var _buffer: String = ""
 var _done: bool = false
+var response_code: int = 0
+var any_data: bool = false
 
 func _init(host: String, path: String, auth_header: String, body: String) -> void:
 	_host = host
@@ -48,10 +50,23 @@ func run(host_node: Node) -> void:
 	if not _http.has_response():
 		stream_error.emit("no response")
 		return
+	response_code = _http.get_response_code()
+	if response_code < 200 or response_code >= 300:
+		# Drain the error body so callers can fall back to a batch request.
+		var errbuf := PackedByteArray()
+		while _http.get_status() == HTTPClient.STATUS_BODY:
+			_http.poll()
+			var c := _http.read_response_body_chunk()
+			if c.size() > 0:
+				errbuf.append_array(c)
+			await host_node.get_tree().process_frame
+		stream_error.emit("http %d: %s" % [response_code, errbuf.get_string_from_utf8().left(300)])
+		return
 	while _http.get_status() == HTTPClient.STATUS_BODY:
 		_http.poll()
 		var chunk := _http.read_response_body_chunk()
 		if chunk.size() > 0:
+			any_data = true
 			_consume_bytes(chunk)
 		await host_node.get_tree().process_frame
 	stream_closed.emit()

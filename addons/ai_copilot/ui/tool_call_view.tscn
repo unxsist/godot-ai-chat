@@ -2,6 +2,5 @@
 
 [ext_resource type="Script" path="res://addons/ai_copilot/ui/tool_call_view.gd" id="1_tv"]
 
-[node name="ToolView" type="Control"]
-custom_minimum_size = Vector2(0, 80)
+[node name="ToolView" type="MarginContainer"]
 script = ExtResource("1_tv")

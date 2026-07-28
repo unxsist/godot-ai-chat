@@ -1,6 +1,6 @@
 @tool
 class_name AiCopilotToolView
-extends Control
+extends MarginContainer
 
 signal accept(call: AiCopilotLLMTypes.ToolCall)
 signal reject(call: AiCopilotLLMTypes.ToolCall)
@@ -14,6 +14,7 @@ var _call: AiCopilotLLMTypes.ToolCall
 var _approve_mode: bool = true
 
 var _built: bool = false
+var _card: PanelContainer
 var _title_label: Label
 var _args_label: Label
 var _result_label: Label
@@ -33,14 +34,12 @@ func _build() -> void:
 		c.queue_free()
 
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", AiCopilotUI.scale(10))
-	margin.add_theme_constant_override("margin_right", AiCopilotUI.scale(10))
-	margin.add_theme_constant_override("margin_top", AiCopilotUI.scale(2))
-	margin.add_theme_constant_override("margin_bottom", AiCopilotUI.scale(2))
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(margin)
+	# Outer padding around the card (this node is itself a MarginContainer, so it
+	# reports the card's full height as its minimum — no manual sizing needed).
+	add_theme_constant_override("margin_left", AiCopilotUI.scale(10))
+	add_theme_constant_override("margin_right", AiCopilotUI.scale(10))
+	add_theme_constant_override("margin_top", AiCopilotUI.scale(2))
+	add_theme_constant_override("margin_bottom", AiCopilotUI.scale(2))
 
 	var card := PanelContainer.new()
 	var cs := StyleBoxFlat.new()
@@ -54,7 +53,8 @@ func _build() -> void:
 	cs.content_margin_bottom = 10
 	card.add_theme_stylebox_override("panel", cs)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.add_child(card)
+	add_child(card)
+	_card = card
 
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -329,8 +329,7 @@ func _lock(verdict: String) -> void:
 	_reject_btn.visible = false
 	_title_label.text = "%s  •  %s" % [verdict, _call.name]
 	# Neutralize the amber "awaiting" border.
-	var card := _title_label.get_parent().get_parent().get_parent() as PanelContainer
-	if card:
-		var s := card.get_theme_stylebox("panel")
+	if _card:
+		var s := _card.get_theme_stylebox("panel")
 		if s is StyleBoxFlat:
 			(s as StyleBoxFlat).border_color = Color("2a2a33")
