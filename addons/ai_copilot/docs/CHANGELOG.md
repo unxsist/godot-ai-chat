@@ -17,3 +17,4 @@
 - Fix: a tall approval diff pushed the Approve/Reject buttons out of reach — the inline diff now caps its height and scrolls internally, and the chat panel waits for layout before auto-scrolling
 - Fix: the approval card (`ToolView`) is now a `MarginContainer`, so it reports its real height to the chat list; previously it claimed only 80px and its diff + buttons overflowed outside the scrollable area
 - Fix: streaming now falls back to a non-streaming (batch) request when the SSE stream errors, returns a non-2xx status, or yields no data — previously such failures showed an empty response with no thinking/text
+- Docs: replaced the three separate UI screenshots with a single hero image of the plugin docked in the real Godot editor

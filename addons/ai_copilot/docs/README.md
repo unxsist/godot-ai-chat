@@ -16,11 +16,11 @@ and inspect the live editor state.
 - Auto-compaction when conversation approaches the model context window.
 - Public tool registration API.
 
-## Screenshots
+## Screenshot
 
-| Chat sidebar | Diff approval | Settings |
-|---|---|---|
-| ![Chat sidebar](screenshots/chat.png) | ![Diff approval](screenshots/diff.png) | ![Settings](screenshots/settings.png) |
+![AI Copilot docked in the Godot editor](screenshots/editor.png)
+
+*The agent writing a pause menu into the demo project — code, tool calls, and results inline in the dock.*
 
 ## Installation
 
