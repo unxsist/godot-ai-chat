@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="addons/ai_copilot/docs/screenshots/banner.png" alt="AI Copilot for Godot" width="900"/>
+
 # 🤖 AI Copilot for Godot
 
 ### A Copilot/Claude-style AI coding agent, right inside the Godot editor.
@@ -7,11 +9,11 @@
 Chat with an LLM that actually *does the work* — it reads your files, writes and refactors
 GDScript, edits scenes, runs your game, and reads back the runtime errors to fix its own bugs.
 
+[![Godot Asset Library](https://img.shields.io/badge/Godot_Asset_Library-Install-478CBF?logo=godotengine&logoColor=white)](https://store.godotengine.org/asset/unxsist/ai-copilot/)
 [![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Providers](https://img.shields.io/badge/LLM_providers-15%2B-8A2BE2)](#-providers)
 [![GDScript](https://img.shields.io/badge/100%25-GDScript-355570?logo=godotengine&logoColor=white)](https://godotengine.org)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
 <br/>
 
@@ -49,7 +51,7 @@ tools:
 
 ## 📦 Installation
 
-**From the Godot Asset Library** *(recommended)* — search for **"AI Copilot"** and install.
+**From the [Godot Asset Library](https://store.godotengine.org/asset/unxsist/ai-copilot/)** *(recommended)* — search for **"AI Copilot"** in the editor's AssetLib tab, or install from the [store page](https://store.godotengine.org/asset/unxsist/ai-copilot/).
 
 **Manually:**
 
