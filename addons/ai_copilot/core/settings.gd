@@ -4,6 +4,8 @@ extends RefCounted
 signal setting_changed(key: String, value)
 
 const KEYS := {
+	"provider": AiCopilotProviders.DEFAULT_PROVIDER_ID,
+	"base_url": "",
 	"endpoint": AiCopilotConst.DEFAULT_ENDPOINT,
 	"model": "",
 	"vision_model": "",
@@ -27,9 +29,47 @@ func _init() -> void:
 	var err := _config.load(AiCopilotConst.SETTINGS_FILE)
 	if err != OK and err != ERR_FILE_NOT_FOUND:
 		push_error("[ai_copilot] settings load err=%d" % err)
+	_migrate_endpoint_to_provider()
+
+# Pre-provider installs stored a raw `endpoint` with no `provider` key. Map that
+# endpoint onto a known provider (or "custom" with the endpoint as base_url) so
+# existing users keep working after upgrading.
+func _migrate_endpoint_to_provider() -> void:
+	if _config.has_section_key("general", "provider"):
+		return
+	var ep := String(_config.get_value("general", "endpoint", "")).strip_edges()
+	if ep == "":
+		return
+	var matched := ""
+	for p in AiCopilotProviders.all():
+		if String(p.get("base_url", "")) != "" and ep == String(p["base_url"]):
+			matched = String(p["id"])
+			break
+	if matched != "":
+		_config.set_value("general", "provider", matched)
+	else:
+		_config.set_value("general", "provider", "custom")
+		_config.set_value("general", "base_url", ep)
+	_config.save(AiCopilotConst.SETTINGS_FILE)
 
 func _ensure_user_dir() -> void:
 	DirAccess.make_dir_recursive_absolute(AiCopilotConst.USER_DIR)
+
+# --- provider resolution -------------------------------------------------
+
+# Base URL for the currently selected provider (honors custom/local override).
+func effective_base_url() -> String:
+	var pid := String(get_value("provider"))
+	var override := String(get_value("base_url"))
+	var url := AiCopilotProviders.base_url_for(pid, override)
+	# Back-compat: pre-provider installs only had a raw endpoint.
+	if url == "":
+		url = String(get_value("endpoint"))
+	return url
+
+# {name, value} auth header for the current provider + stored key.
+func effective_auth_header() -> Dictionary:
+	return AiCopilotProviders.auth_header_for(String(get_value("provider")), String(get_value("api_key")))
 
 func get_value(key: String):
 	var default = KEYS.get(key, null)

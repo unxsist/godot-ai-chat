@@ -7,6 +7,7 @@ and inspect the live editor state.
 ## Features
 
 - Chat sidebar (right-dock), markdown + fenced-code rendering with syntax highlighting.
+- 15+ LLM providers via a provider picker (OpenAI, OpenRouter, Anthropic, Gemini, DeepSeek, Groq, Fireworks, Together, xAI, Mistral, Cerebras, Ollama, LM Studio, custom…) with live `/models` fetch.
 - Streaming token-by-token (with graceful fallback to batch).
 - Agent loop with tool calls (multi-round, max 20 steps per message).
 - Approve mode (default) shows an inline diff for `write_file` / `edit_file` before applying.
@@ -49,10 +50,21 @@ func _ready() -> void:
 
 ## Settings
 
+Open the settings dialog (gear/menu in the dock). Pick a **provider** from the
+dropdown, paste your API key, then **Fetch models** to list what the endpoint
+offers (or type a model id directly). Local providers (Ollama, LM Studio) need
+no key — just start the server and fetch.
+
+Supported providers (all OpenAI `/chat/completions` compatible): OpenAI,
+OpenRouter, Anthropic, Google Gemini, DeepSeek, Groq, Fireworks, Together AI,
+xAI (Grok), Mistral, Cerebras, DeepInfra, Moonshot, Ollama, LM Studio, and a
+generic **OpenAI-Compatible (custom)** entry with an editable base URL.
+
 | Key | Default | Notes |
 |---|---|---|
-| endpoint | https://api.fireworks.ai/inference/v1 | OpenAI-compatible endpoint |
-| model | (none) | Chat completions model |
+| provider | openai | Selected provider id |
+| base_url | (provider default) | Editable for custom / local providers |
+| model | (none) | Chat completions model; use Fetch models to list |
 | vision_model | (none) | Required for viewport screenshot |
 | model_context_window | 32000 | For compaction threshold |
 | api_key | (none) | Stored XOR'd with per-install salt |
@@ -63,6 +75,9 @@ func _ready() -> void:
 | allow_shell | true | Disable to unregister shell.run |
 | compact_threshold | 0.7 | Conversation / context window |
 | verbose_logging | false | Toggle debug logging |
+
+Upgrading from a pre-provider version keeps working: your old `endpoint` is
+auto-mapped to the matching provider (or a custom base URL).
 
 ## License
 

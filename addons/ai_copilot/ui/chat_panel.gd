@@ -33,6 +33,7 @@ func _ready() -> void:
 
 	_settings_dialog = preload("res://addons/ai_copilot/ui/settings_dialog.tscn").instantiate()
 	add_child(_settings_dialog)
+	_settings_dialog.set_client(_client)
 	_settings_dialog.changed.connect(_on_settings_saved)
 	_settings_dialog.load_from(_settings)
 

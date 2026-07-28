@@ -11,21 +11,31 @@ var _http: HTTPClient
 var _host: String
 var _path: String
 var _auth: String
+var _auth_name: String
 var _body: String
+var _use_tls: bool = true
+var _port: int = -1
 var _buffer: String = ""
 var _done: bool = false
 var response_code: int = 0
 var any_data: bool = false
 
-func _init(host: String, path: String, auth_header: String, body: String) -> void:
+# host may be a bare host ("api.openai.com") or include scheme/port, but callers
+# usually pass a bare host from AiCopilotLLMClient._extract_host. use_tls/port
+# let local providers (Ollama/LM Studio on http://localhost:PORT) work.
+func _init(host: String, path: String, auth_value: String, body: String, auth_name: String = "Authorization", use_tls: bool = true, port: int = -1) -> void:
 	_host = host
 	_path = path
-	_auth = auth_header
+	_auth = auth_value
+	_auth_name = auth_name
 	_body = body
+	_use_tls = use_tls
+	_port = port
 
 func run(host_node: Node) -> void:
 	_http = HTTPClient.new()
-	var err := _http.connect_to_host(_host, -1, TLSOptions.client())
+	var tls = TLSOptions.client() if _use_tls else null
+	var err := _http.connect_to_host(_host, _port, tls)
 	if err != OK:
 		stream_error.emit("connect_to_host err=%d" % err)
 		return
@@ -37,7 +47,7 @@ func run(host_node: Node) -> void:
 		return
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
-		"Authorization: " + _auth,
+		"%s: %s" % [_auth_name, _auth],
 		"Accept: text/event-stream",
 	])
 	err = _http.request(HTTPClient.METHOD_POST, _path, headers, _body)

@@ -19,10 +19,11 @@ func send_messages_batch(messages: Array, options: Dictionary = {}) -> AiCopilot
 	var http := HTTPRequest.new()
 	add_child(http)
 	http.timeout = AiCopilotConst.HTTP_TIMEOUT_MS / 1000.0
-	var url := (_settings.get_value("endpoint") as String) + AiCopilotConst.CHAT_COMPLETIONS_PATH
+	var url := _settings.effective_base_url() + AiCopilotConst.CHAT_COMPLETIONS_PATH
+	var auth := _settings.effective_auth_header()
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
-		"Authorization: Bearer " + (_settings.get_value("api_key") as String),
+		"%s: %s" % [auth["name"], auth["value"]],
 	])
 	var body := JSON.stringify(payload, "", false)
 	var err := http.request(url, headers, HTTPClient.METHOD_POST, body)
@@ -42,15 +43,53 @@ func send_messages_batch(messages: Array, options: Dictionary = {}) -> AiCopilot
 		return AiCopilotLLMTypes.Message.new("assistant", "")
 	return _parse_response(body_str)
 
+# Fetch available model ids from the provider's OpenAI-compatible /models
+# endpoint. Returns {"ok": bool, "models": PackedStringArray, "error": String,
+# "status": int}. Ported from KiloCode's fetch-models.ts.
+func fetch_models() -> Dictionary:
+	var base := _settings.effective_base_url()
+	if base.strip_edges() == "":
+		return {"ok": false, "models": PackedStringArray(), "error": "no base URL set", "status": 0}
+	var url := base.rstrip("/") + "/models"
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.timeout = 15.0
+	var auth := _settings.effective_auth_header()
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	if String(_settings.get_value("api_key")).strip_edges() != "":
+		headers.append("%s: %s" % [auth["name"], auth["value"]])
+	var err := http.request(url, headers, HTTPClient.METHOD_GET)
+	if err != OK:
+		http.queue_free()
+		return {"ok": false, "models": PackedStringArray(), "error": "request error %d" % err, "status": 0}
+	var result: Array = await http.request_completed
+	var r_code: int = result[1]
+	var body_str: String = (result[3] as PackedByteArray).get_string_from_utf8()
+	http.queue_free()
+	if r_code < 200 or r_code >= 300:
+		return {"ok": false, "models": PackedStringArray(), "error": "HTTP %d: %s" % [r_code, body_str.left(200)], "status": r_code}
+	var parsed = JSON.parse_string(body_str)
+	var out := PackedStringArray()
+	if parsed is Dictionary and parsed.has("data") and parsed["data"] is Array:
+		var seen := {}
+		for item in parsed["data"]:
+			if item is Dictionary and item.has("id"):
+				var mid := String(item["id"]).strip_edges()
+				if mid != "" and not seen.has(mid):
+					seen[mid] = true
+					out.append(mid)
+	out.sort()
+	return {"ok": true, "models": out, "error": "", "status": r_code}
+
 func send_messages_stream(messages: Array, options: Dictionary = {}) -> AiCopilotLLMTypes.Message:
 	var payload := _build_payload(messages, options, true)
-	var endpoint := _settings.get_value("endpoint") as String
+	var endpoint := _settings.effective_base_url()
 	var host := _extract_host(endpoint)
 	var base_path := _extract_path(endpoint)
 	var path := base_path + AiCopilotConst.CHAT_COMPLETIONS_PATH
-	var auth_header := "Bearer " + (_settings.get_value("api_key") as String)
+	var auth := _settings.effective_auth_header()
 	var body := JSON.stringify(payload, "", false)
-	var sse := AiCopilotSSEStream.new(host, path, auth_header, body)
+	var sse := AiCopilotSSEStream.new(host, path, String(auth["value"]), body, String(auth["name"]), _is_tls(endpoint), _extract_port(endpoint))
 	var accum := _Accumulator.new()
 	var had_error := [false]
 	sse.data_line.connect(_on_data.bind(accum))
@@ -179,7 +218,24 @@ func _extract_host(full_url: String) -> String:
 	var slash := s.find("/")
 	if slash != -1:
 		s = s.substr(0, slash)
+	# strip an explicit :port
+	var colon := s.rfind(":")
+	if colon != -1:
+		s = s.substr(0, colon)
 	return s
+
+func _extract_port(full_url: String) -> int:
+	var s := _strip_scheme(full_url)
+	var slash := s.find("/")
+	if slash != -1:
+		s = s.substr(0, slash)
+	var colon := s.rfind(":")
+	if colon != -1:
+		return int(s.substr(colon + 1))
+	return -1
+
+func _is_tls(full_url: String) -> bool:
+	return not full_url.begins_with("http://")
 
 func _extract_path(full_url: String) -> String:
 	var s := _strip_scheme(full_url)
