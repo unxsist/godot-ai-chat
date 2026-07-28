@@ -297,10 +297,11 @@ func _update_todos(todos) -> void:
 
 func _on_tool_approve(tc: AiCopilotLLMTypes.ToolCall) -> void:
 	var v := preload("res://addons/ai_copilot/ui/tool_call_view.tscn").instantiate()
-	v.set_call(tc, true)
 	v.accept.connect(func(c): _agent.approve(c.id))
 	v.reject.connect(func(c): _agent.reject(c.id))
 	_messages_box.add_child(v)
+	# Configure AFTER add_child so the view's _ready() has built its widgets.
+	v.set_call(tc, true)
 	_scroll_to_bottom()
 
 func _on_turn_finished(_reason: String) -> void:

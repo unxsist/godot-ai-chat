@@ -9,8 +9,8 @@ and inspect the live editor state.
 - Chat sidebar (right-dock), markdown + fenced-code rendering with syntax highlighting.
 - Streaming token-by-token (with graceful fallback to batch).
 - Agent loop with tool calls (multi-round, max 20 steps per message).
-- Approve mode (default) shows side-by-side diffs for `fs.write_file` / `fs.edit_file`.
-- Tools: `fs.read_file`, `fs.list_files`, `fs.write_file`, `fs.edit_file`, `fs.delete_file`, `fs.rename`, `fs.grep`, `shell.run`, `editor.get_open_scenes`, `editor.open_script`, `editor.viewport_screenshot`.
+- Approve mode (default) shows an inline diff for `write_file` / `edit_file` before applying.
+- Tools: `read_file`, `list_files`, `glob`, `grep`, `write_file`, `edit_file`, `delete_file`, `rename_file`, `run_command`, `create_scene`, `add_node`, `run_scene`, `run_project`, `open_script`, `get_open_scenes`, `check_scripts`, `viewport_screenshot`, `project_get_setting` / `project_set_setting`, `project_add_input_action`, `todowrite`.
 - Sandbox: agent cannot access outside `res://` or inside `res://addons/ai_copilot/`.
 - Session persistence across editor restarts.
 - Auto-compaction when conversation approaches the model context window.
@@ -38,7 +38,7 @@ func _ready() -> void:
     var api := Engine.get_meta("AiCopilotAPI", null)
     if api == null: return
     api.registry.register_tool(
-        "project.greet_player",
+        "greet_player",
         "Salute the player by name.",
         {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]},
         func(call, args):
