@@ -21,7 +21,6 @@ var _settings_ref: AiCopilotSettings = null
 func _ready() -> void:
 	title = "AI Copilot Settings"
 	ok_button_text = "Save"
-	min_size = Vector2i(640, 300)
 	confirmed.connect(_on_save)
 	var body := _build_body()
 	add_child(body)
@@ -32,11 +31,10 @@ func set_client(c: AiCopilotLLMClient) -> void:
 func _build_body() -> Control:
 	var tabs := TabContainer.new()
 	tabs.name = "Body"
-	tabs.custom_minimum_size = Vector2(600, 0)
-	tabs.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# A concrete minimum size lets AcceptDialog size its window to the content
+	# (instead of ballooning to a tall narrow strip).
+	tabs.custom_minimum_size = Vector2(640, 340)
 	tabs.tab_alignment = TabBar.ALIGNMENT_CENTER
-	# Clearer tabs: give the tabbar a bit more weight.
 	tabs.add_theme_font_size_override("font_size", 15)
 
 	# Panel behind the tab body so the content area reads as a distinct card.
@@ -73,7 +71,9 @@ func _make_connection_tab() -> Control:
 	_keys_hint = RichTextLabel.new()
 	_keys_hint.bbcode_enabled = true
 	_keys_hint.fit_content = true
+	_keys_hint.scroll_active = false
 	_keys_hint.meta_underlined = true
+	_keys_hint.custom_minimum_size = Vector2(560, 20)
 	_keys_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_keys_hint.add_theme_font_size_override("normal_font_size", 12)
 	_keys_hint.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
@@ -93,7 +93,9 @@ func _make_connection_tab() -> Control:
 	var model_row := _labeled_row("Model")
 	_model_edit = LineEdit.new()
 	_model_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_model_edit.custom_minimum_size.x = 220
 	_model_edit.placeholder_text = "model id (e.g. gpt-4o)"
+	_model_edit.clip_contents = true
 	_inputs["model"] = _model_edit
 	model_row.add_child(_model_edit)
 	_model_menu = MenuButton.new()
@@ -117,6 +119,7 @@ func _make_connection_tab() -> Control:
 	model_hint.add_theme_font_size_override("font_size", 11)
 	model_hint.add_theme_color_override("font_color", Color("707078"))
 	model_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	model_hint.custom_minimum_size.x = 560
 	conn.add_child(model_hint)
 	return conn
 

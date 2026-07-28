@@ -145,9 +145,9 @@ func _ready() -> void:
 
 func open_settings() -> void:
 	_settings_dialog.load_from(_settings)
-	# Size to content (with a sensible minimum) rather than a fixed tall box.
+	# Let AcceptDialog size the window from the content's minimum size.
 	_settings_dialog.reset_size()
-	_settings_dialog.popup_centered(Vector2i(660, 0))
+	_settings_dialog.popup_centered()
 
 func _on_settings_saved() -> void:
 	var data := _settings_dialog.collect()
