@@ -10,3 +10,4 @@
 - Session persistence
 - Auto-compaction
 - Public extensibility hook
+- Fix: text preceding a fenced code block was duplicated after the block in the message renderer
