@@ -40,7 +40,7 @@ tools:
 | | |
 |---|---|
 | 💬 **Chat dock** | Right-docked sidebar with token streaming, markdown + fenced code, and syntax highlighting. |
-| 🤝 **Agent loop** | Multi-round tool calls (up to 20 steps/message) — the model plans, acts, checks, and iterates. |
+| 🤝 **Agent loop** | Multi-round tool calls — the model plans, acts, checks its own work, and stops when done. |
 | 🔍 **Inline diffs** | Approve mode shows a colored before/after diff for every `write_file` / `edit_file` before it applies. |
 | 🩺 **Runtime debugging** | `run_and_capture` plays the game in a time-limited process and reports runtime errors with backtraces. |
 | 🧰 **Rich toolset** | Filesystem, grep/glob, shell, scene building, project settings, screenshots, and a public API to add your own. |

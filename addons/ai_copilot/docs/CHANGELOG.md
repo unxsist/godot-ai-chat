@@ -1,31 +1,21 @@
 # Changelog
 
-## 0.1.0
-- Initial release
-- Chat sidebar with streaming token reveal
-- Tool-calling agent loop (max 20 steps)
-- Approve mode with diff preview
-- fs, shell, editor tools
-- Vision support for viewport screenshot
-- Session persistence
-- Auto-compaction
-- Public extensibility hook
-- Fix: text preceding a fenced code block was duplicated after the block in the message renderer
-- Fix: approval card was never configured (set_call ran before the view built its widgets), so the diff/actions never appeared
-- Approval card redesigned: dark themed, shows an inline colored diff for `write_file`/`edit_file` automatically (no extra click), with an Expand button for the full side-by-side view
-- Diff preview dialog restyled to match the editor dark theme with syntax highlighting
-- Fix: a tall approval diff pushed the Approve/Reject buttons out of reach — the inline diff now caps its height and scrolls internally, and the chat panel waits for layout before auto-scrolling
-- Fix: the approval card (`ToolView`) is now a `MarginContainer`, so it reports its real height to the chat list; previously it claimed only 80px and its diff + buttons overflowed outside the scrollable area
-- Fix: streaming now falls back to a non-streaming (batch) request when the SSE stream errors, returns a non-2xx status, or yields no data — previously such failures showed an empty response with no thinking/text
-- Docs: replaced the three separate UI screenshots with a single hero image of the plugin docked in the real Godot editor
-- Multi-provider support: pick from 15+ OpenAI-compatible providers (OpenAI, OpenRouter, Anthropic, Gemini, DeepSeek, Groq, Fireworks, Together, xAI, Mistral, Cerebras, DeepInfra, Moonshot, Ollama, LM Studio, custom) via a provider dropdown in settings, with per-provider base URL/auth, an API-key hint link, and live `/models` fetching. Local providers work over http (no TLS) and custom ports. Existing installs auto-migrate their old endpoint to the matching provider.
-- Fix: reasoning/thinking is now emitted from the batch (and streaming-fallback) path too, and accepts both `reasoning_content` and `reasoning` keys — previously thinking was dropped whenever a request didn't stream
-- New `run_and_capture` tool: runs the game (or a scene) in a time-limited subprocess and reports runtime errors/warnings — null references, index errors, failed assertions, `push_error`/`push_warning` — with file:line and GDScript backtrace. Catches runtime bugs that `check_scripts` (compile-only) cannot.
-- Settings reorganized into **Connection** and **Advanced** tabs — provider/key/model up front, everything else tucked away.
-- Removed the `max_steps` setting: the agent loop ends naturally when the model replies without tool calls (a hidden safety cap gracefully asks it to summarize if ever reached).
-- Consecutive calls to the same tool are now grouped under one collapsible pill (e.g. `read_file ×3`); a different tool starts a new group.
-- Markdown rendering fixes: links now work, added italics (`*x*` / `_x_`) and ordered lists, protected inline code, and made inline formatting position-safe (`snake_case` no longer italicized).
-- Markdown now renders **live while streaming** (bold/italic/code/links/lists), not only after the message completes. Unclosed markers mid-stream stay literal until their closing marker arrives.
-- Fix: streaming (chunk/reasoning) signals are now connected once and gated by an in-flight flag, instead of being connected/disconnected per message. An errored turn used to leak its connection, so a later turn's "thinking" could spawn a stray bubble that appeared above your message or replaced an earlier one. Also hardened live-bubble handling against stale references.
-- Settings dialog polish: clear segmented section switcher (Connection / Advanced) instead of faint tabs, sized-to-content window, and editor-scaled fonts so nothing looks tiny on HiDPI.
-- Fix: the dock tab is now correctly titled "AI Copilot" instead of "ChatPanel".
+## 1.0.0
+First stable release.
+
+### Highlights
+- **Agentic chat dock** — a Copilot/Claude-style sidebar in the Godot 4.7 editor. The agent plans, calls tools over multiple rounds, checks its own work, and stops when done.
+- **15+ LLM providers** via a provider picker: OpenAI, OpenRouter, Anthropic, Google Gemini, DeepSeek, Groq, Fireworks, Together AI, xAI (Grok), Mistral, Cerebras, DeepInfra, Moonshot, Ollama, LM Studio, and a generic OpenAI-compatible (custom) endpoint. Live `/models` fetching; local providers work over http and custom ports with no API key.
+- **Inline diff approvals** — approve mode shows a colored before/after diff for every `write_file` / `edit_file` before it's applied, with an Expand button for the full side-by-side view.
+- **Runtime error capture** — the `run_and_capture` tool plays the game (or a scene) in a time-limited process and reports runtime errors/warnings (null refs, index errors, `push_error`) with file:line and GDScript backtrace — bugs that compile-checks can't catch.
+- **Native-feeling UI** — dark chat dock with token streaming, live markdown (bold/italic/code/links/lists), syntax-highlighted code blocks, grouped tool pills, and a live plan panel. Editor-scaled fonts.
+
+### Tools
+`read_file`, `list_files`, `glob`, `grep`, `write_file`, `edit_file`, `delete_file`, `rename_file`, `run_command`, `create_scene`, `add_node`, `run_scene`, `run_project`, `run_and_capture`, `open_script`, `get_open_scenes`, `check_scripts`, `viewport_screenshot`, `project_get_setting`, `project_set_setting`, `project_add_input_action`, `todowrite`.
+
+### Also included
+- Approve/allow-shell/temperature/context-window and other options under a Connection / Advanced settings split.
+- Session persistence across editor restarts and automatic conversation compaction near the context window.
+- Vision support (viewport screenshot) when a vision model is configured.
+- Sandboxed to `res://`; the agent cannot touch its own addon folder.
+- Public tool-registration API for adding your own tools.
