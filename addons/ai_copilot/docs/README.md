@@ -1,36 +1,79 @@
-# AI Copilot — Godot Editor Plugin
+<div align="center">
 
-A Copilot/Claude-style chat sidebar embedded in the Godot 4.7 editor. Chat with an LLM
-that can edit your project: read files, write scripts, refactor scenes, run shell commands,
-and inspect the live editor state.
+# 🤖 AI Copilot for Godot
 
-## Features
+### A Copilot/Claude-style AI coding agent, right inside the Godot editor.
 
-- Chat sidebar (right-dock), markdown + fenced-code rendering with syntax highlighting.
-- 15+ LLM providers via a provider picker (OpenAI, OpenRouter, Anthropic, Gemini, DeepSeek, Groq, Fireworks, Together, xAI, Mistral, Cerebras, Ollama, LM Studio, custom…) with live `/models` fetch.
-- Streaming token-by-token (with graceful fallback to batch).
-- Agent loop with tool calls (multi-round, max 20 steps per message).
-- Approve mode (default) shows an inline diff for `write_file` / `edit_file` before applying.
-- Tools: `read_file`, `list_files`, `glob`, `grep`, `write_file`, `edit_file`, `delete_file`, `rename_file`, `run_command`, `create_scene`, `add_node`, `run_scene`, `run_project`, `run_and_capture` (run the game and collect runtime errors), `open_script`, `get_open_scenes`, `check_scripts`, `viewport_screenshot`, `project_get_setting` / `project_set_setting`, `project_add_input_action`, `todowrite`.
-- Runtime error checking: `run_and_capture` runs the game in a time-limited process and reports runtime errors/warnings (null refs, index errors, `push_error`) with file:line + backtrace — catching bugs `check_scripts` (compile-only) can't.
-- Sandbox: agent cannot access outside `res://` or inside `res://addons/ai_copilot/`.
-- Session persistence across editor restarts.
-- Auto-compaction when conversation approaches the model context window.
-- Public tool registration API.
+Chat with an LLM that actually *does the work* — it reads your files, writes and refactors
+GDScript, edits scenes, runs your game, and reads back the runtime errors to fix its own bugs.
 
-## Screenshot
+[![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Providers](https://img.shields.io/badge/LLM_providers-15%2B-8A2BE2)](#-providers)
+[![GDScript](https://img.shields.io/badge/100%25-GDScript-355570?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
-![AI Copilot docked in the Godot editor](screenshots/editor.png)
+<br/>
 
-*The agent writing a pause menu into the demo project — code, tool calls, and results inline in the dock.*
+<img src="screenshots/editor.png" alt="AI Copilot docked in the Godot editor" width="900"/>
 
-## Installation
+<sub>The agent writing a pause menu into a real project — reasoning, code, tool calls, and the plan, all inline in the dock.</sub>
+
+</div>
+
+---
+
+## ✨ Why AI Copilot
+
+Most AI helpers just autocomplete or answer questions in a separate window. **AI Copilot is an
+agent that works your project for you** — from inside the editor, with your approval, using real
+tools:
+
+- 🧠 **Agentic, not just chat** — a multi-round tool-calling loop that reads, edits, runs, and verifies.
+- 🔌 **Bring any model** — 15+ providers out of the box, or point it at a local Ollama/LM Studio server.
+- 🩺 **Runs *and* debugs your game** — captures runtime errors (null refs, index errors, `push_error`) with file:line + backtrace, not just compile errors.
+- 🛡️ **Safe by default** — approve mode shows an inline diff before any file is touched, and the agent is sandboxed to your project.
+- 🎨 **Feels native** — dark-themed chat dock with streaming, markdown, syntax-highlighted code, tool pills, and a live plan.
+
+## 🚀 Features
+
+| | |
+|---|---|
+| 💬 **Chat dock** | Right-docked sidebar with token streaming, markdown + fenced code, and syntax highlighting. |
+| 🤝 **Agent loop** | Multi-round tool calls (up to 20 steps/message) — the model plans, acts, checks, and iterates. |
+| 🔍 **Inline diffs** | Approve mode shows a colored before/after diff for every `write_file` / `edit_file` before it applies. |
+| 🩺 **Runtime debugging** | `run_and_capture` plays the game in a time-limited process and reports runtime errors with backtraces. |
+| 🧰 **Rich toolset** | Filesystem, grep/glob, shell, scene building, project settings, screenshots, and a public API to add your own. |
+| 💾 **Persistent** | Sessions survive editor restarts; auto-compaction keeps long chats within the context window. |
+| 🔒 **Sandboxed** | The agent can't touch anything outside `res://` — or inside the plugin's own folder. |
+
+## 📦 Installation
+
+**From the Godot Asset Library** *(recommended)* — search for **"AI Copilot"** and install.
+
+**Manually:**
 
 1. Copy `addons/ai_copilot/` into your project's `addons/` directory.
 2. In Godot: **Project → Project Settings → Plugins → enable "AI Copilot"**.
-3. Click the gear in the dock; set your Fireworks API key and model.
+3. Open the dock, click the ⚙️ menu → **Settings**, pick a provider, paste your API key, and hit **Fetch models**.
 
-## Adding your own tools
+That's it — start typing in the composer at the bottom of the dock.
+
+## 🔌 Providers
+
+Pick a provider from the dropdown and you're set. All speak the OpenAI `/chat/completions`
+protocol, so switching is instant and models can be **fetched live** from the endpoint.
+
+| Cloud | Gateways | Local |
+|---|---|---|
+| OpenAI · Anthropic · Google Gemini · DeepSeek · Groq · Fireworks · Together AI · xAI (Grok) · Mistral · Cerebras · DeepInfra · Moonshot | OpenRouter | Ollama · LM Studio |
+
+> Plus a generic **OpenAI-Compatible (custom)** entry with an editable base URL for anything else.
+> Local providers need no API key — just start the server and click **Fetch models**.
+
+## 🧩 Extending it
+
+Register your own tools and the agent can call them:
 
 ```gdscript
 @tool
@@ -49,37 +92,38 @@ func _ready() -> void:
     )
 ```
 
-## Settings
+## 🛠️ Built-in tools
 
-Open the settings dialog (gear/menu in the dock). Pick a **provider** from the
-dropdown, paste your API key, then **Fetch models** to list what the endpoint
-offers (or type a model id directly). Local providers (Ollama, LM Studio) need
-no key — just start the server and fetch.
+`read_file` · `list_files` · `glob` · `grep` · `write_file` · `edit_file` · `delete_file` ·
+`rename_file` · `run_command` · `create_scene` · `add_node` · `run_scene` · `run_project` ·
+`run_and_capture` · `open_script` · `get_open_scenes` · `check_scripts` · `viewport_screenshot` ·
+`project_get_setting` · `project_set_setting` · `project_add_input_action` · `todowrite`
 
-Supported providers (all OpenAI `/chat/completions` compatible): OpenAI,
-OpenRouter, Anthropic, Google Gemini, DeepSeek, Groq, Fireworks, Together AI,
-xAI (Grok), Mistral, Cerebras, DeepInfra, Moonshot, Ollama, LM Studio, and a
-generic **OpenAI-Compatible (custom)** entry with an editable base URL.
+## ⚙️ Settings
 
 | Key | Default | Notes |
 |---|---|---|
 | provider | openai | Selected provider id |
 | base_url | (provider default) | Editable for custom / local providers |
-| model | (none) | Chat completions model; use Fetch models to list |
-| vision_model | (none) | Required for viewport screenshot |
-| model_context_window | 32000 | For compaction threshold |
-| api_key | (none) | Stored XOR'd with per-install salt |
+| model | (none) | Chat completions model; use **Fetch models** to list |
+| vision_model | (none) | Required for the viewport screenshot tool |
+| model_context_window | 32000 | For the compaction threshold |
+| api_key | (none) | Stored XOR'd with a per-install salt |
 | temperature | 0.2 | |
 | max_tokens | 4096 | |
-| max_steps | 20 | Tool call limit per message |
-| approve_default | true | Mutating tools need approval |
-| allow_shell | true | Disable to unregister shell.run |
-| compact_threshold | 0.7 | Conversation / context window |
+| max_steps | 20 | Tool-call limit per message |
+| approve_default | true | Mutating tools require approval |
+| allow_shell | true | Disable to unregister the shell tool |
+| compact_threshold | 0.7 | Conversation size / context window |
 | verbose_logging | false | Toggle debug logging |
 
-Upgrading from a pre-provider version keeps working: your old `endpoint` is
-auto-mapped to the matching provider (or a custom base URL).
+> Upgrading from a pre-provider version keeps working — your old `endpoint` is auto-mapped to the matching provider.
 
-## License
+## 🤝 Contributing
 
-MIT
+Issues and PRs are welcome. This plugin is 100% GDScript with no external dependencies —
+clone it into a project's `addons/` folder, enable it, and hack away.
+
+## 📄 License
+
+[MIT](LICENSE) — do whatever you like.
