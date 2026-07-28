@@ -195,8 +195,15 @@ func _parse_response(body_str: String) -> AiCopilotLLMTypes.Message:
 		return AiCopilotLLMTypes.Message.new("assistant", "")
 	var first: Dictionary = choices[0]
 	var msg: Dictionary = first.get("message", {})
-	if msg.has("reasoning_content") and msg["reasoning_content"] != null and str(msg["reasoning_content"]) != "":
-		reasoning_received.emit(str(msg["reasoning_content"]))
+	# Emit reasoning if present (parity with the streaming path: some providers
+	# use "reasoning_content", others "reasoning").
+	var r := ""
+	if msg.has("reasoning_content") and msg["reasoning_content"] != null:
+		r = str(msg["reasoning_content"])
+	elif msg.has("reasoning") and msg["reasoning"] != null:
+		r = str(msg["reasoning"])
+	if r.strip_edges() != "":
+		reasoning_received.emit(r)
 	var m: AiCopilotLLMTypes.Message = AiCopilotLLMTypes.Message.from_dict(msg)
 	if parsed.has("usage"):
 		var u: Dictionary = parsed["usage"]
