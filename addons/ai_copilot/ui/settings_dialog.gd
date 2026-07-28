@@ -17,6 +17,10 @@ var _fetch_btn: Button
 var _fetch_status: Label
 var _client: AiCopilotLLMClient = null
 var _settings_ref: AiCopilotSettings = null
+var _tab_conn_btn: Button
+var _tab_adv_btn: Button
+var _section_conn: Control
+var _section_adv: Control
 
 func _ready() -> void:
 	title = "AI Copilot Settings"
@@ -29,33 +33,106 @@ func set_client(c: AiCopilotLLMClient) -> void:
 	_client = c
 
 func _build_body() -> Control:
-	var tabs := TabContainer.new()
-	tabs.name = "Body"
-	# A concrete minimum size lets AcceptDialog size its window to the content
-	# (instead of ballooning to a tall narrow strip).
-	tabs.custom_minimum_size = Vector2(640, 340)
-	tabs.tab_alignment = TabBar.ALIGNMENT_CENTER
-	tabs.add_theme_font_size_override("font_size", 15)
+	var root := VBoxContainer.new()
+	root.name = "Body"
+	root.custom_minimum_size = Vector2(640, 340)
+	root.add_theme_constant_override("separation", 12)
 
-	# Panel behind the tab body so the content area reads as a distinct card.
-	var body_style := StyleBoxFlat.new()
-	body_style.bg_color = Color("1b1b21")
-	body_style.set_corner_radius_all(4)
-	body_style.corner_radius_top_left = 0
-	body_style.content_margin_left = 16
-	body_style.content_margin_right = 16
-	body_style.content_margin_top = 14
-	body_style.content_margin_bottom = 14
-	tabs.add_theme_stylebox_override("panel", body_style)
+	# --- Segmented section switcher (clear, unambiguous active state) -------
+	var seg := HBoxContainer.new()
+	seg.alignment = BoxContainer.ALIGNMENT_CENTER
+	seg.add_theme_constant_override("separation", 0)
+	root.add_child(seg)
 
-	tabs.add_child(_make_connection_tab())
-	tabs.add_child(_make_advanced_tab())
-	return tabs
+	_tab_conn_btn = _make_seg_button("Connection", true)
+	_tab_adv_btn = _make_seg_button("Advanced", false)
+	# radio-style group
+	var grp := ButtonGroup.new()
+	_tab_conn_btn.button_group = grp
+	_tab_adv_btn.button_group = grp
+	_tab_conn_btn.pressed.connect(func(): _show_section(0))
+	_tab_adv_btn.pressed.connect(func(): _show_section(1))
+	seg.add_child(_tab_conn_btn)
+	seg.add_child(_tab_adv_btn)
+
+	# --- Content panel (card) that holds whichever section is active --------
+	var card := PanelContainer.new()
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color("1b1b21")
+	card_style.set_corner_radius_all(6)
+	card_style.set_border_width_all(1)
+	card_style.border_color = Color("2e2e39")
+	card_style.content_margin_left = 16
+	card_style.content_margin_right = 16
+	card_style.content_margin_top = 14
+	card_style.content_margin_bottom = 14
+	card.add_theme_stylebox_override("panel", card_style)
+	root.add_child(card)
+
+	_section_conn = _make_connection_tab()
+	_section_adv = _make_advanced_tab()
+	card.add_child(_section_conn)
+	card.add_child(_section_adv)
+	_show_section(0)
+	return root
+
+# A pill-style segmented toggle button. First/last get rounded outer corners.
+func _make_seg_button(text: String, is_first: bool) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.toggle_mode = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(140, 30)
+	b.add_theme_font_size_override("font_size", 14)
+
+	var mk := func(bg: Color, fg: Color, border: Color) -> StyleBoxFlat:
+		var s := StyleBoxFlat.new()
+		s.bg_color = bg
+		s.border_color = border
+		s.set_border_width_all(1)
+		s.content_margin_left = 14
+		s.content_margin_right = 14
+		s.content_margin_top = 5
+		s.content_margin_bottom = 5
+		if is_first:
+			s.corner_radius_top_left = 6
+			s.corner_radius_bottom_left = 6
+		else:
+			s.corner_radius_top_right = 6
+			s.corner_radius_bottom_right = 6
+		return s
+
+	var normal := mk.call(Color("222228"), Color("9aa0ae"), Color("34343f"))
+	var hover := mk.call(Color("2a2a32"), Color("cfd4e0"), Color("3a3a46"))
+	var active := mk.call(Color("3d6fb0"), Color("ffffff"), Color("4d82c8"))
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", active)
+	b.add_theme_stylebox_override("hover_pressed", active)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_theme_color_override("font_color", Color("9aa0ae"))
+	b.add_theme_color_override("font_hover_color", Color("cfd4e0"))
+	b.add_theme_color_override("font_pressed_color", Color("ffffff"))
+	b.add_theme_color_override("font_hover_pressed_color", Color("ffffff"))
+	return b
+
+func _show_section(idx: int) -> void:
+	if _section_conn:
+		_section_conn.visible = idx == 0
+	if _section_adv:
+		_section_adv.visible = idx == 1
+	if _tab_conn_btn:
+		_tab_conn_btn.button_pressed = idx == 0
+	if _tab_adv_btn:
+		_tab_adv_btn.button_pressed = idx == 1
 
 func _make_connection_tab() -> Control:
 	var conn := VBoxContainer.new()
 	conn.name = "Connection"
 	conn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	conn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	conn.add_theme_constant_override("separation", 10)
 
 	# Provider picker
@@ -127,6 +204,7 @@ func _make_advanced_tab() -> Control:
 	var adv := VBoxContainer.new()
 	adv.name = "Advanced"
 	adv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	adv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	adv.add_theme_constant_override("separation", 10)
 	adv.add_child(_row("vision_model", "Vision model", "LineEdit"))
 	adv.add_child(_row("model_context_window", "Context window (tokens)", "SpinBox"))
@@ -309,6 +387,8 @@ func load_from(settings: AiCopilotSettings) -> void:
 	var pid := String(settings.get_value("provider"))
 	_select_provider_in_ui(pid)
 	_apply_provider_ui(pid)
+	# always open on the Connection section
+	_show_section(0)
 
 func _on_save() -> void:
 	changed.emit()
