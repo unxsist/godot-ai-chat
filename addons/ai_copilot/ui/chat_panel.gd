@@ -145,7 +145,9 @@ func _ready() -> void:
 
 func open_settings() -> void:
 	_settings_dialog.load_from(_settings)
-	_settings_dialog.popup_centered(Vector2i(640, 420))
+	# Size to content (with a sensible minimum) rather than a fixed tall box.
+	_settings_dialog.reset_size()
+	_settings_dialog.popup_centered(Vector2i(660, 0))
 
 func _on_settings_saved() -> void:
 	var data := _settings_dialog.collect()

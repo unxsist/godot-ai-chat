@@ -21,6 +21,7 @@ var _settings_ref: AiCopilotSettings = null
 func _ready() -> void:
 	title = "AI Copilot Settings"
 	ok_button_text = "Save"
+	min_size = Vector2i(640, 300)
 	confirmed.connect(_on_save)
 	var body := _build_body()
 	add_child(body)
@@ -31,22 +32,38 @@ func set_client(c: AiCopilotLLMClient) -> void:
 func _build_body() -> Control:
 	var tabs := TabContainer.new()
 	tabs.name = "Body"
-	tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tabs.custom_minimum_size = Vector2(600, 0)
+	tabs.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.tab_alignment = TabBar.ALIGNMENT_CENTER
+	# Clearer tabs: give the tabbar a bit more weight.
+	tabs.add_theme_font_size_override("font_size", 15)
 
-	# ============================ Connection tab ============================
+	# Panel behind the tab body so the content area reads as a distinct card.
+	var body_style := StyleBoxFlat.new()
+	body_style.bg_color = Color("1b1b21")
+	body_style.set_corner_radius_all(4)
+	body_style.corner_radius_top_left = 0
+	body_style.content_margin_left = 16
+	body_style.content_margin_right = 16
+	body_style.content_margin_top = 14
+	body_style.content_margin_bottom = 14
+	tabs.add_theme_stylebox_override("panel", body_style)
+
+	tabs.add_child(_make_connection_tab())
+	tabs.add_child(_make_advanced_tab())
+	return tabs
+
+func _make_connection_tab() -> Control:
 	var conn := VBoxContainer.new()
 	conn.name = "Connection"
-	conn.add_theme_constant_override("separation", 6)
-	tabs.add_child(conn)
+	conn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	conn.add_theme_constant_override("separation", 10)
 
 	# Provider picker
-	var prov_row := HBoxContainer.new()
-	var prov_label := Label.new()
-	prov_label.text = "Provider"
-	prov_label.custom_minimum_size.x = 200
-	prov_row.add_child(prov_label)
+	var prov_row := _labeled_row("Provider")
 	_provider_btn = OptionButton.new()
-	_provider_btn.custom_minimum_size.x = 360
+	_provider_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_populate_providers()
 	_provider_btn.item_selected.connect(_on_provider_selected)
 	prov_row.add_child(_provider_btn)
@@ -57,7 +74,8 @@ func _build_body() -> Control:
 	_keys_hint.bbcode_enabled = true
 	_keys_hint.fit_content = true
 	_keys_hint.meta_underlined = true
-	_keys_hint.custom_minimum_size = Vector2(560, 0)
+	_keys_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_keys_hint.add_theme_font_size_override("normal_font_size", 12)
 	_keys_hint.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
 	conn.add_child(_keys_hint)
 
@@ -71,14 +89,10 @@ func _build_body() -> Control:
 	_api_key_edit = _inputs["api_key"]
 	conn.add_child(_api_key_row)
 
-	# Model row: field + fetch + dropdown
-	var model_row := HBoxContainer.new()
-	var model_label := Label.new()
-	model_label.text = "Model"
-	model_label.custom_minimum_size.x = 200
-	model_row.add_child(model_label)
+	# Model row: label + field + dropdown + fetch
+	var model_row := _labeled_row("Model")
 	_model_edit = LineEdit.new()
-	_model_edit.custom_minimum_size.x = 250
+	_model_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_model_edit.placeholder_text = "model id (e.g. gpt-4o)"
 	_inputs["model"] = _model_edit
 	model_row.add_child(_model_edit)
@@ -88,37 +102,49 @@ func _build_body() -> Control:
 	_model_menu.get_popup().id_pressed.connect(_on_model_picked)
 	model_row.add_child(_model_menu)
 	_fetch_btn = Button.new()
-	_fetch_btn.text = "Fetch models"
+	_fetch_btn.text = "Fetch"
 	_fetch_btn.pressed.connect(_on_fetch_models)
 	model_row.add_child(_fetch_btn)
 	conn.add_child(model_row)
+
 	_fetch_status = Label.new()
 	_fetch_status.add_theme_font_size_override("font_size", 11)
 	_fetch_status.add_theme_color_override("font_color", Color("8a8a95"))
 	conn.add_child(_fetch_status)
+
 	var model_hint := Label.new()
 	model_hint.text = "Fetch lists the models your endpoint exposes — you can also type any model id."
 	model_hint.add_theme_font_size_override("font_size", 11)
 	model_hint.add_theme_color_override("font_color", Color("707078"))
 	model_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	conn.add_child(model_hint)
+	return conn
 
-	# ============================= Advanced tab =============================
+func _make_advanced_tab() -> Control:
 	var adv := VBoxContainer.new()
 	adv.name = "Advanced"
-	adv.add_theme_constant_override("separation", 6)
-	tabs.add_child(adv)
-
-	adv.add_child(_row("vision_model", "Vision model (optional)", "LineEdit"))
-	adv.add_child(_row("model_context_window", "Model context window (tokens)", "SpinBox"))
+	adv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	adv.add_theme_constant_override("separation", 10)
+	adv.add_child(_row("vision_model", "Vision model", "LineEdit"))
+	adv.add_child(_row("model_context_window", "Context window (tokens)", "SpinBox"))
 	adv.add_child(_row("temperature", "Temperature", "SpinBox"))
 	adv.add_child(_row("max_tokens", "Max tokens", "SpinBox"))
+	adv.add_child(_row("compact_threshold", "Compact threshold (0..1)", "SpinBox"))
+	adv.add_child(HSeparator.new())
 	adv.add_child(_row("approve_default", "Approve mode by default", "CheckBox"))
 	adv.add_child(_row("allow_shell", "Allow shell tool", "CheckBox"))
-	adv.add_child(_row("compact_threshold", "Compact threshold (0..1)", "SpinBox"))
 	adv.add_child(_row("verbose_logging", "Verbose logging", "CheckBox"))
+	return adv
 
-	return tabs
+# A row with a fixed-width label, ready for callers to add the input control(s).
+func _labeled_row(label_text: String) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var l := Label.new()
+	l.text = label_text
+	l.custom_minimum_size.x = 150
+	h.add_child(l)
+	return h
 
 func _populate_providers() -> void:
 	_provider_btn.clear()
@@ -224,21 +250,23 @@ func _flush_connection_to_settings() -> void:
 
 func _row(key: String, label_text: String, kind: String) -> HBoxContainer:
 	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
 	var l := Label.new()
 	l.text = label_text
-	l.custom_minimum_size.x = 200
+	l.custom_minimum_size.x = 150
 	h.add_child(l)
 	var w: Control = null
 	match kind:
 		"LineEdit":
 			w = LineEdit.new()
-			w.custom_minimum_size.x = 360
+			w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		"PasswordInput":
 			w = LineEdit.new()
 			(w as LineEdit).secret = true
-			w.custom_minimum_size.x = 360
+			w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		"SpinBox":
 			w = SpinBox.new()
+			(w as SpinBox).custom_minimum_size.x = 160
 			match key:
 				"temperature":
 					(w as SpinBox).min_value = 0.0
