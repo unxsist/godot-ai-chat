@@ -11,7 +11,8 @@ and inspect the live editor state.
 - Streaming token-by-token (with graceful fallback to batch).
 - Agent loop with tool calls (multi-round, max 20 steps per message).
 - Approve mode (default) shows an inline diff for `write_file` / `edit_file` before applying.
-- Tools: `read_file`, `list_files`, `glob`, `grep`, `write_file`, `edit_file`, `delete_file`, `rename_file`, `run_command`, `create_scene`, `add_node`, `run_scene`, `run_project`, `open_script`, `get_open_scenes`, `check_scripts`, `viewport_screenshot`, `project_get_setting` / `project_set_setting`, `project_add_input_action`, `todowrite`.
+- Tools: `read_file`, `list_files`, `glob`, `grep`, `write_file`, `edit_file`, `delete_file`, `rename_file`, `run_command`, `create_scene`, `add_node`, `run_scene`, `run_project`, `run_and_capture` (run the game and collect runtime errors), `open_script`, `get_open_scenes`, `check_scripts`, `viewport_screenshot`, `project_get_setting` / `project_set_setting`, `project_add_input_action`, `todowrite`.
+- Runtime error checking: `run_and_capture` runs the game in a time-limited process and reports runtime errors/warnings (null refs, index errors, `push_error`) with file:line + backtrace — catching bugs `check_scripts` (compile-only) can't.
 - Sandbox: agent cannot access outside `res://` or inside `res://addons/ai_copilot/`.
 - Session persistence across editor restarts.
 - Auto-compaction when conversation approaches the model context window.

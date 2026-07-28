@@ -18,6 +18,14 @@ static func register_all(registry: AiCopilotToolRegistry) -> void:
 		{"type":"object","properties":{},"required":[]},
 		Callable(AiCopilotGodotTools, "_stop_project"), false)
 	registry.register_tool(
+		"run_and_capture",
+		"Run the game (or a specific scene) in a separate process for a few seconds and capture its RUNTIME errors and warnings: null references, index out of bounds, failed assertions, push_error/push_warning — each with the message, file:line, and GDScript backtrace. This catches errors that only happen while the game runs, which check_scripts (compile-only) cannot. Use after writing gameplay code: fix reported runtime errors, then run again. The process is auto-terminated after 'seconds'.",
+		{"type":"object","properties":{
+			"scene":{"type":"string","description":"Optional res:// .tscn to run. Omit to run the project's main scene."},
+			"seconds":{"type":"number","description":"How long to let the game run before stopping it (1-30).","default":5}
+		},"required":[]},
+		Callable(AiCopilotGodotTools, "_run_and_capture"), true)
+	registry.register_tool(
 		"get_project_info",
 		"Get a summary of the project: name, main scene, Godot version, autoloads, input actions, and top-level directories/scripts/scenes counts.",
 		{"type":"object","properties":{},"required":[]},
@@ -67,6 +75,111 @@ static func _stop_project(_c, _a) -> AiCopilotLLMTypes.ToolResult:
 	if not Engine.is_editor_hint(): return AiCopilotLLMTypes.ToolResult.new("not in editor", true)
 	EditorInterface.stop_playing_scene()
 	return AiCopilotLLMTypes.ToolResult.new("Stopped.", false)
+
+# ---------- run & capture runtime errors ----------
+
+# Runs the game in a separate, time-limited process (using the current editor
+# binary + --quit-after) and captures its stderr/stdout. Godot prints runtime
+# errors (null refs, index errors, push_error/warning) with file:line + a
+# GDScript backtrace, which we parse out. This catches errors that only occur
+# while running — unlike check_scripts, which is compile-only.
+static func _run_and_capture(_c, args) -> AiCopilotLLMTypes.ToolResult:
+	if not Engine.is_editor_hint():
+		return AiCopilotLLMTypes.ToolResult.new("not in editor", true)
+	var exe := OS.get_executable_path()
+	if exe == "":
+		return AiCopilotLLMTypes.ToolResult.new("cannot locate Godot executable", true)
+	var project_dir := ProjectSettings.globalize_path("res://")
+	var seconds := clampf(float(args.get("seconds", 5)), 1.0, 30.0)
+	var frames := int(seconds * 60.0)
+
+	var run_args := PackedStringArray(["--path", project_dir, "--quit-after", str(frames)])
+	var scene := String(args.get("scene", "")).strip_edges()
+	var target := "main scene"
+	if scene != "":
+		var cpath := AiCopilotToolPath.canonicalize_in_res(scene)
+		if cpath == "":
+			return AiCopilotLLMTypes.ToolResult.new("scene path outside project", true)
+		if not FileAccess.file_exists(cpath):
+			return AiCopilotLLMTypes.ToolResult.new("scene does not exist: %s" % cpath, true)
+		run_args.append(cpath)
+		target = cpath
+	else:
+		var main := String(ProjectSettings.get_setting("application/run/main_scene", ""))
+		if main == "":
+			return AiCopilotLLMTypes.ToolResult.new("No main scene set. Pass a 'scene' or set run/main_scene.", true)
+		target = main
+
+	var output: Array = []
+	# Blocking: the child self-terminates after --quit-after frames.
+	OS.execute(exe, run_args, output, true, false)
+	var text := "\n".join(output)
+	var parsed := _parse_runtime_errors(text)
+	var errs: int = parsed["errors"]
+	var warns: int = parsed["warnings"]
+	var body: String = parsed["text"]
+	if errs == 0 and warns == 0:
+		return AiCopilotLLMTypes.ToolResult.new("Ran %s for %.0fs — no runtime errors or warnings." % [target, seconds], false)
+	var header := "Ran %s for %.0fs — %d error(s), %d warning(s):\n\n" % [target, seconds, errs, warns]
+	return AiCopilotLLMTypes.ToolResult.new(header + body, errs > 0)
+
+# Extract runtime error/warning blocks from Godot process output. Each block is
+# an ERROR:/WARNING:/SCRIPT ERROR: line followed by indented "at:" and backtrace
+# lines. Ignores our own tooling noise.
+static func _parse_runtime_errors(text: String) -> Dictionary:
+	var lines := text.split("\n", false)
+	var out: PackedStringArray = []
+	var errors := 0
+	var warnings := 0
+	var i := 0
+	while i < lines.size():
+		var line := lines[i]
+		var stripped := line.strip_edges()
+		var kind := ""
+		if stripped.begins_with("SCRIPT ERROR:"):
+			kind = "ERROR"
+			stripped = stripped.substr("SCRIPT ERROR:".length()).strip_edges()
+		elif stripped.begins_with("ERROR:"):
+			kind = "ERROR"
+			stripped = stripped.substr("ERROR:".length()).strip_edges()
+		elif stripped.begins_with("WARNING:"):
+			kind = "WARNING"
+			stripped = stripped.substr("WARNING:".length()).strip_edges()
+		if kind == "":
+			i += 1
+			continue
+		# collect the following indented context lines (at: / backtrace)
+		var ctx: PackedStringArray = []
+		var at_loc := ""
+		var res_loc := ""
+		var j := i + 1
+		while j < lines.size():
+			var raw := lines[j]
+			if raw.strip_edges() == "":
+				break
+			# context lines are indented; a new top-level message is not
+			if not (raw.begins_with(" ") or raw.begins_with("\t")):
+				break
+			var c := raw.strip_edges()
+			if c.begins_with("at:") and at_loc == "":
+				at_loc = c.substr(3).strip_edges()
+			# prefer the first res:// backtrace frame as the headline location
+			if res_loc == "" and c.find("res://") != -1:
+				var rb := c.find("res://")
+				res_loc = c.substr(rb).rstrip(")")
+			ctx.append("    " + c)
+			j += 1
+		if kind == "ERROR":
+			errors += 1
+		else:
+			warnings += 1
+		var loc := res_loc if res_loc != "" else at_loc
+		var locpart := ("  [%s]" % loc) if loc != "" else ""
+		out.append("[%s] %s%s" % [kind, stripped, locpart])
+		for c in ctx:
+			out.append(c)
+		i = j
+	return {"errors": errors, "warnings": warnings, "text": "\n".join(out)}
 
 # ---------- project info ----------
 
