@@ -1,7 +1,7 @@
 class_name AiCopilotConst
 
 const PLUGIN_NAME := "AI Copilot"
-const PLUGIN_VERSION := "1.0.0"
+const PLUGIN_VERSION := "1.0.1"
 const PLUGIN_DIR := "res://addons/ai_copilot/"
 const USER_DIR := "user://ai_copilot/"
 const SESSION_FILE := "user://ai_copilot/session.json"

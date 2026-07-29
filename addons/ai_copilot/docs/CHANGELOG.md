@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+- Packaging: `README.md` and `LICENSE` now ship inside the `addons/ai_copilot/` folder, and the release archive contains only the addon (no `.gitignore`). Per Asset Library review feedback.
+
 ## 1.0.0
 First stable release.
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="screenshots/banner.png" alt="AI Copilot for Godot" width="900"/>
+<img src="docs/screenshots/banner.png" alt="AI Copilot for Godot" width="900"/>
 
 # 🤖 AI Copilot for Godot
 
@@ -17,7 +17,7 @@ GDScript, edits scenes, runs your game, and reads back the runtime errors to fix
 
 <br/>
 
-<img src="screenshots/editor.png" alt="AI Copilot docked in the Godot editor" width="900"/>
+<img src="docs/screenshots/editor.png" alt="AI Copilot docked in the Godot editor" width="900"/>
 
 <sub>The agent writing a pause menu into a real project — reasoning, code, tool calls, and the plan, all inline in the dock.</sub>
 
